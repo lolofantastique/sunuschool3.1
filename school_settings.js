@@ -58,91 +58,14 @@
   }
 
   /* ============================================================
-     2. AUTHENTIFICATION SUPABASE RÉELLE
-        Remplace le handleLogin() de script.js par une vraie auth
+     2. ÉTAT ET CONNEXION SUPABASE
+        script.js gère déjà l'authentification et l'hydratation
+        complète des tables depuis Supabase via enterSession().
      ============================================================ */
-  function patchLogin() {
-    // Attendre que Supabase soit prêt
-    const tryPatch = setInterval(() => {
-      if (!window.sb) return;
-      clearInterval(tryPatch);
-
-      // Remplace handleLogin par la vraie auth Supabase
-      window.handleLogin = async function (e) {
-        if (e && e.preventDefault) e.preventDefault();
-        const identifier = ($('login-id-input') || {}).value?.trim();
-        const password   = ($('login-pwd-input') || {}).value?.trim();
-        const role       = typeof pendingRole !== 'undefined' ? pendingRole : 'student';
-
-        if (!identifier) { toast('⚠️ Identifiant requis.'); return; }
-        if (!password)   { toast('⚠️ Mot de passe requis.'); return; }
-
-        // Construction de l'email Supabase depuis le matricule
-        const cfg = window.SUNU_CONFIG || {};
-        const domain = cfg.emailDomain || 'sunuschool.example.com';
-        const emailUser = identifier.toLowerCase().replace(/[^a-z0-9_\-\.]/g, '_');
-        const email = emailUser + '@' + domain;
-
-        const submitBtn = document.querySelector('#login-modal button[type="submit"]');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Connexion…'; }
-
-        try {
-          const { data, error } = await window.sb.auth.signInWithPassword({ email, password });
-
-          if (error) {
-            // Erreur Supabase → message lisible en français
-            let msg = '⚠️ Identifiant ou mot de passe incorrect.';
-            if (/email not confirmed/i.test(error.message)) msg = '⚠️ Compte non confirmé. Contactez l\'administration.';
-            if (/too many requests/i.test(error.message)) msg = '⚠️ Trop de tentatives. Réessayez dans quelques minutes.';
-            toast(msg);
-            return;
-          }
-
-          // Succès : on retrouve le rôle et le label depuis les données en mémoire
-          let label;
-          if (role === 'student') {
-            const s = allStudentsDB.find(x => x.matricule.toLowerCase() === identifier.toLowerCase());
-            if (!s) { toast(`⚠️ Élève "${identifier}" introuvable dans le registre.`); return; }
-            window.currentStudentMat = s.matricule;
-            label = '🎓 ' + s.nom;
-          } else if (role === 'teacher') {
-            const t = teachersData.find(x => x.matricule.toLowerCase() === identifier.toLowerCase());
-            if (!t) { toast(`⚠️ Enseignant "${identifier}" introuvable.`); return; }
-            window.currentTeacherId = t.id;
-            label = '👨‍🏫 ' + t.name;
-          } else {
-            label = '🧑‍💼 Administration';
-          }
-
-          window.currentRole = role;
-          const sessionLabel = $('session-label');
-          if (sessionLabel) sessionLabel.textContent = label;
-
-          // Fermer le modal de connexion
-          if (typeof dismissLoginModal === 'function') dismissLoginModal();
-
-          // Rafraîchir les droits et naviguer
-          if (typeof refreshAccess === 'function') refreshAccess();
-          if (role === 'student') switchTab('student');
-          else if (role === 'teacher') switchTab('teacher');
-          else switchTab('classes-registry');
-
-          toast('✅ Connexion réussie. Bienvenue, ' + label + ' !');
-
-        } catch (err) {
-          toast('⚠️ Erreur de connexion : ' + (err.message || err));
-        } finally {
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Se Connecter'; }
-        }
-      };
-
-      // Déconnexion réelle
-      const origLogout = window.logout;
-      window.logout = async function () {
-        if (window.sb) await window.sb.auth.signOut().catch(() => {});
-        if (typeof origLogout === 'function') origLogout();
-      };
-    }, 300);
+  function checkSupabaseStatus() {
+    if (window.sb) {
+      console.log('✅ SunuSchool connecté au backend Supabase Cloud');
+    }
   }
 
   /* ============================================================
@@ -589,7 +512,7 @@
     } catch (_) {}
 
     applySchoolBranding();
-    patchLogin();
+    checkSupabaseStatus();
     createSettingsTab();
     patchBulletinHeader();
     patchRoleAccess();
