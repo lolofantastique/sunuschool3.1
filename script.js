@@ -18,8 +18,11 @@
       { key: 'Collège',  label: 'Collège',          icon: '📘' },
       { key: 'Lycée',    label: 'Lycée',            icon: '🎓' }
     ];
-    let registryLevel = 'all', registryClassId = null;
-    let schedLevel = 'all', schedClassId = null;   // onglet « Emplois du Temps »
+    var registryLevel = 'all', registryClassId = null;
+    window.getRegistryClass = function() {
+      return (typeof classesMgtData !== 'undefined' ? classesMgtData : []).find(c => c.id === registryClassId) || (typeof classesMgtData !== 'undefined' ? classesMgtData[0] : null);
+    };
+    window.classStudents = classStudents;
 
     function classStudents(cls) {
       return allStudentsDB.filter(s => classKey(s.classe) === classKey(cls.name)).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
@@ -728,7 +731,7 @@
     // =========================================================
     // CLASSES MANAGEMENT DATA (déclaré AVANT init pour éviter l'erreur TDZ)
     // =========================================================
-    let classesMgtData = [
+    var classesMgtData = [
       { name: "6ème A",       level: "Collège", effectif: 45, pp: "M. Amadou Diallo", room: "Salle 01" },
       { name: "3ème A",       level: "Collège", effectif: 42, pp: "M. Amadou Diallo", room: "Salle 04" },
       { name: "3ème B",       level: "Collège", effectif: 38, pp: "Mme Fatou Ndiaye",  room: "Salle 05" },
@@ -736,15 +739,15 @@
       { name: "2nde C",       level: "Lycée",   effectif: 36, pp: "M. Oumar Seck",     room: "Salle 10" },
       { name: "Terminale S2", level: "Lycée",   effectif: 32, pp: "M. Oumar Seck",     room: "Salle 12" }
     ];
-    let nextMatriculeNum = 469;
-    let nextClassId = 1;
+    var nextMatriculeNum = 469;
+    var nextClassId = 1;
     classesMgtData.forEach(c => { c.id = nextClassId++; });
-    let classesTrash = [];            // [{ cls, deletedAt }]
-    let ctxClassId = null, ctxOpenedAt = 0;
+    var classesTrash = [];            // [{ cls, deletedAt }]
+    var ctxClassId = null, ctxOpenedAt = 0;
     const TRASH_DAYS = 30, DAY_MS = 86400000;
 
     // Base de données des élèves pour la recherche
-    const allStudentsDB = [
+    var allStudentsDB = [
       { nom: "DIOP Fatou",      matricule: "SN-2025-0412", sexe: "F", classe: "3ème A", parent: "M. Moussa Diop",       phone: "+221 77 123 45 67", fee: "30 000 FCFA", statut: "Payé",      statutClass: "bg-emerald-100 text-emerald-800" },
       { nom: "NDIAYE Babacar",  matricule: "SN-2025-0104", sexe: "M", classe: "3ème A", parent: "Mme Aïssatou Ndiaye",  phone: "+221 78 234 56 78", fee: "30 000 FCFA", statut: "Payé",      statutClass: "bg-emerald-100 text-emerald-800" },
       { nom: "FALL Modou",      matricule: "SN-2025-0899", sexe: "M", classe: "3ème A", parent: "M. Cheikh Fall",       phone: "+221 76 345 67 89", fee: "30 000 FCFA", statut: "En retard", statutClass: "bg-rose-100 text-rose-800"        },
