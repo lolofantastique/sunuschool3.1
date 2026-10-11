@@ -20,7 +20,7 @@
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /* ============================================================
-     1. APPLICATION DU NOM D'ÉCOLE & GESTION MULTI-ÉTABLISSEMENT
+     1. APPLICATION DU NOM D'ÉCOLE DEPUIS school_config.js
      ============================================================ */
   function applySchoolBranding() {
     const s = SC();
@@ -29,12 +29,6 @@
     // Barre de connexion
     const loginName = $('login-school-name');
     if (loginName) loginName.textContent = s.name + ' • ' + (s.city || '');
-
-    // Sélecteur d'école sur la modale de login
-    const schoolActiveName = $('school-active-name');
-    if (schoolActiveName) {
-      schoolActiveName.textContent = s.name + (s.city ? ' • ' + s.city : '');
-    }
 
     // Navbar
     const navName = $('nav-school-name');
@@ -63,166 +57,6 @@
     document.title = 'SunuSchool — ' + s.name;
   }
 
-  // Applique une école chargée depuis Supabase
-  window.applySchoolData = function (school, options = {}) {
-    if (!school) return;
-    window.SCHOOL = {
-      id:         school.id,
-      slug:       school.slug,
-      name:       school.name,
-      shortName:  school.short_name || school.name,
-      city:       school.city || '',
-      phone:      school.phone || '',
-      email:      school.email || '',
-      ia:         school.ia || '',
-      ief:        school.ief || '',
-      schoolYear: school.school_year || '2025 - 2026',
-      currency:   school.currency || 'FCFA',
-      country:    school.country || 'Sénégal',
-      logo:       school.logo || ''
-    };
-
-    if (options.saveSlug) {
-      try { localStorage.setItem('sunuschool-active-slug', school.slug); } catch (_) {}
-    }
-
-    if (options.updateUrl && window.history && window.history.replaceState) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('ecole', school.slug);
-        window.history.replaceState({}, '', url.toString());
-      } catch (_) {}
-    }
-
-    applySchoolBranding();
-  };
-
-  // Détecte l'école (URL param ?ecole=, sous-domaine, localStorage, ou défaut) et la charge depuis Supabase
-  async function detectAndLoadSchool() {
-    let targetSlug = null;
-
-    // 1. URL param : ?ecole=slug ou ?school=slug ou ?s=slug
-    try {
-      const params = new URLSearchParams(window.location.search);
-      targetSlug = params.get('ecole') || params.get('school') || params.get('s') || params.get('slug');
-    } catch (_) {}
-
-    // 2. Sous-domaine éventuel (ex: excellence.sunuschool.app)
-    if (!targetSlug && window.location.hostname) {
-      const parts = window.location.hostname.split('.');
-      if (parts.length >= 3 && !['www', 'app', 'localhost', '127'].includes(parts[0])) {
-        targetSlug = parts[0];
-      }
-    }
-
-    // 3. LocalStorage
-    if (!targetSlug) {
-      try { targetSlug = localStorage.getItem('sunuschool-active-slug'); } catch (_) {}
-    }
-
-    // 4. Fallback vers school_config.js
-    if (!targetSlug && window.SCHOOL && window.SCHOOL.slug) {
-      targetSlug = window.SCHOOL.slug;
-    }
-
-    // Requête Supabase si client disponible
-    if (window.sb && targetSlug) {
-      try {
-        const { data: school, error } = await window.sb
-          .from('schools')
-          .select('*')
-          .eq('slug', targetSlug)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (school) {
-          window.applySchoolData(school, { saveSlug: true });
-        }
-      } catch (err) {
-        console.warn('Erreur chargement école Supabase :', err);
-      }
-    }
-
-    applySchoolBranding();
-    initSchoolPicker();
-  }
-
-  // Initialise la liste des écoles pour le sélecteur
-  async function initSchoolPicker() {
-    const dropdown = $('school-picker-dropdown');
-    if (!dropdown || !window.sb) return;
-
-    try {
-      const { data: schools, error } = await window.sb
-        .from('schools')
-        .select('id, slug, name, short_name, city, logo')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error || !schools || !schools.length) {
-        dropdown.innerHTML = '<div class="text-[11px] text-slate-400 text-center py-2">Aucun autre établissement</div>';
-        return;
-      }
-
-      dropdown.innerHTML = schools.map(s => {
-        const isCurrent = (window.SCHOOL && window.SCHOOL.slug === s.slug);
-        return `
-          <button type="button" onclick="selectSchool('${esc(s.slug)}')" class="w-full text-left p-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-between gap-2 text-xs group ${isCurrent ? 'bg-emerald-50/50' : ''}">
-            <div class="truncate">
-              <span class="font-bold text-slate-800 group-hover:text-emerald-700 block truncate">${esc(s.name)}</span>
-              <span class="text-[10.5px] text-slate-400 block truncate">${esc(s.city || 'Sénégal')}</span>
-            </div>
-            ${isCurrent ? '<span class="text-emerald-600 font-bold text-xs shrink-0">✓</span>' : ''}
-          </button>
-        `;
-      }).join('');
-
-      const btnToggle = $('btn-toggle-school-picker');
-      if (btnToggle) {
-        if (schools.length <= 1) {
-          btnToggle.classList.add('hidden');
-        } else {
-          btnToggle.classList.remove('hidden');
-        }
-      }
-    } catch (e) {
-      console.warn('Erreur initSchoolPicker :', e);
-    }
-  }
-
-  window.toggleSchoolPicker = function () {
-    const dd = $('school-picker-dropdown');
-    if (!dd) return;
-    const isHidden = dd.classList.contains('hidden');
-    if (isHidden) {
-      dd.classList.remove('hidden');
-      initSchoolPicker();
-    } else {
-      dd.classList.add('hidden');
-    }
-  };
-
-  window.selectSchool = async function (slug) {
-    if (!window.sb || !slug) return;
-    try {
-      const { data: school, error } = await window.sb
-        .from('schools')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (school) {
-        window.applySchoolData(school, { saveSlug: true, updateUrl: true });
-        const dd = $('school-picker-dropdown');
-        if (dd) dd.classList.add('hidden');
-        toast(`🏫 Établissement : ${school.name}`);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   /* ============================================================
      2. ÉTAT ET CONNEXION SUPABASE
         script.js gère déjà l'authentification et l'hydratation
@@ -235,468 +69,19 @@
   }
 
   /* ============================================================
-     3. IMPRESSION DE CLASSE & IMPORT/EXPORT EXCEL (SheetJS)
+     3. EXPORT EXCEL FONCTIONNEL (SheetJS)
      ============================================================ */
-
-  // Helper pour récupérer la classe actuellement affichée dans le registre
-  function getActiveRegistryClass() {
-    if (typeof window.getRegistryClass === 'function') {
-      const c = window.getRegistryClass();
-      if (c) return c;
-    }
-    const cId = typeof registryClassId !== 'undefined' ? registryClassId : null;
-    const list = typeof classesMgtData !== 'undefined' ? classesMgtData : [];
-    return list.find(c => c.id === cId) || list[0] || null;
-  }
-
-  // 1. IMPRESSION DE LA LISTE DE LA CLASSE CONCERNÉE
-  window.printClassList = function () {
-    const cls = getActiveRegistryClass();
-    if (!cls) {
-      toast('⚠️ Aucune classe sélectionnée.');
-      return;
-    }
-
-    const students = (typeof allStudentsDB !== 'undefined' ? allStudentsDB : [])
-      .filter(s => s.classe === cls.name || (typeof classKey === 'function' && classKey(s.classe) === classKey(cls.name)))
-      .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
-
-    if (!students.length) {
-      toast(`⚠️ Aucun élève enregistré dans la classe ${cls.name}.`);
-      return;
-    }
-
-    const sc = SC();
-    const schoolName = sc.name || 'Groupe Scolaire Al-Amine';
-    const schoolCity = sc.city || 'Touba Mosquée';
-    const schoolPhone = sc.phone || '+221 33 800 00 00';
-    const schoolIA = sc.ia || 'IA Diourbel';
-    const schoolIEF = sc.ief || 'IEF Touba';
-    const schoolYear = sc.schoolYear || '2025 - 2026';
-    const country = sc.country || 'République du Sénégal';
-
-    const nbFilles = students.filter(s => s.sexe === 'F').length;
-    const nbGarcons = students.filter(s => s.sexe === 'M').length;
-
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      toast('⚠️ Fenêtre pop-up bloquée. Autorisez les pop-ups pour imprimer la liste.');
-      return;
-    }
-
-    const rowsHtml = students.map((s, idx) => `
-      <tr>
-        <td style="text-align:center;font-weight:bold;color:#475569;">${idx + 1}</td>
-        <td style="font-family:monospace;font-weight:bold;color:#0369a1;">${s.matricule || '—'}</td>
-        <td style="font-weight:bold;text-transform:uppercase;color:#0f172a;">${s.nom || '—'}</td>
-        <td style="text-align:center;font-weight:bold;color:${s.sexe === 'F' ? '#be185d' : '#0369a1'};">${s.sexe === 'F' ? 'F' : 'M'}</td>
-        <td>${s.parent || '—'}</td>
-        <td style="font-family:monospace;">${s.phone || '—'}</td>
-        <td style="text-align:center;font-size:10px;">${s.statut || 'Inscrit'}</td>
-        <td style="min-width:65px;"></td>
-      </tr>
-    `).join('');
-
-    const pageHtml = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>Liste des élèves — Classe de ${cls.name}</title>
-  <style>
-    @page { size: A4 portrait; margin: 12mm; }
-    body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; color: #1e293b; margin: 0; padding: 15px; }
-    .no-print { margin-bottom: 15px; text-align: right; }
-    .no-print button { padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; font-size: 12px; }
-    .btn-print { background: #0284c7; color: white; margin-right: 6px; }
-    .btn-close { background: #64748b; color: white; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
-    .header-col { width: 33%; }
-    .header-col.left { text-align: left; }
-    .header-col.center { text-align: center; }
-    .header-col.right { text-align: right; }
-    .school-title { font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin: 2px 0; }
-    .doc-title { text-align: center; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px 0; color: #0f172a; }
-    .class-meta { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 11px; }
-    .class-meta b { color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-    th { background: #f1f5f9; border: 1px solid #94a3b8; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; font-weight: 800; color: #334155; }
-    td { border: 1px solid #cbd5e1; padding: 5px 8px; vertical-align: middle; }
-    tr:nth-child(even) td { background-color: #fafaf9; }
-    .stats-bar { margin-top: 10px; display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; color: #334155; background: #f8fafc; padding: 6px 12px; border-radius: 6px; }
-    .signatures { margin-top: 40px; display: flex; justify-content: space-between; }
-    .sig-box { width: 40%; text-align: center; }
-    .sig-box .title { font-weight: 800; text-transform: uppercase; margin-bottom: 50px; font-size: 11px; color: #1e293b; }
-    .sig-line { border-top: 1px dashed #64748b; padding-top: 4px; font-size: 9px; color: #64748b; }
-    @media print {
-      body { padding: 0; }
-      .no-print { display: none !important; }
-    }
-  </style>
-</head>
-<body>
-  <div class="no-print">
-    <button class="btn-print" onclick="window.print()">🖨️ Imprimer la Liste</button>
-    <button class="btn-close" onclick="window.close()">✕ Fermer</button>
-  </div>
-
-  <div class="header">
-    <div class="header-col left">
-      <div style="font-weight:900;text-transform:uppercase;font-size:10px;">${country}</div>
-      <div style="font-size:9.5px;color:#475569;">Ministère de l'Éducation Nationale</div>
-      <div style="font-size:9.5px;color:#475569;">${schoolIA} • ${schoolIEF}</div>
-    </div>
-    <div class="header-col center">
-      <div class="school-title">${schoolName}</div>
-      <div style="font-size:9.5px;color:#475569;">${schoolCity} • Tél : ${schoolPhone}</div>
-    </div>
-    <div class="header-col right">
-      <div style="font-weight:bold;font-size:10.5px;">Année Scolaire : ${schoolYear}</div>
-      <div style="font-size:9.5px;color:#64748b;">Date d'édition : ${new Date().toLocaleDateString('fr-FR')}</div>
-    </div>
-  </div>
-
-  <div class="doc-title">LISTE NOMINATIVE OFFICIELLE DES ÉLÈVES</div>
-
-  <div class="class-meta">
-    <div>Classe : <b style="font-size:13px;color:#0369a1;">${cls.name}</b> (${cls.level || '—'})</div>
-    <div>Prof. Principal : <b>${cls.pp || 'Non défini'}</b></div>
-    <div>Salle : <b>${cls.room || '—'}</b></div>
-    <div>Effectif Total : <b>${students.length} élève(s)</b></div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th style="width:28px;text-align:center;">N°</th>
-        <th style="width:105px;">Matricule</th>
-        <th>Nom & Prénom</th>
-        <th style="width:36px;text-align:center;">Sexe</th>
-        <th>Parent / Tuteur Légal</th>
-        <th style="width:115px;">Téléphone WhatsApp</th>
-        <th style="width:75px;text-align:center;">Scolarité</th>
-        <th style="width:85px;text-align:center;">Visa / Émargement</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsHtml}
-    </tbody>
-  </table>
-
-  <div class="stats-bar">
-    <div>Répartition des élèves : <b>${nbFilles} fille(s)</b> • <b>${nbGarcons} garçon(s)</b></div>
-    <div>Effectif total : <b>${students.length} élèves inscrits</b></div>
-  </div>
-
-  <div class="signatures">
-    <div class="sig-box">
-      <div class="title">Le Professeur Principal</div>
-      <div class="sig-line">Visa et Signature</div>
-    </div>
-    <div class="sig-box">
-      <div class="title">Le Chef d'Établissement</div>
-      <div class="sig-line">Cachet et Signature</div>
-    </div>
-  </div>
-
-  <script>
-    window.onload = function() {
-      setTimeout(function() { window.print(); }, 400);
-    };
-  <\/script>
-</body>
-</html>`;
-
-    printWin.document.open();
-    printWin.document.write(pageHtml);
-    printWin.document.close();
-  };
-
-  // 2. MODAL D'IMPORTATION EXCEL POUR LA CLASSE SÉLECTIONNÉE
-  window._excelImportList = [];
-
-  window.openImportExcelModal = function () {
-    const cls = getActiveRegistryClass();
-    if (!cls) {
-      toast('⚠️ Veuillez d’abord sélectionner une classe dans le registre.');
-      return;
-    }
-
-    const badge = $('import-excel-class-badge');
-    if (badge) badge.textContent = cls.name + ' (' + cls.level + ')';
-
-    // Réinitialiser les champs et l'aperçu
-    const fileInput = $('excel-import-file-input');
-    if (fileInput) fileInput.value = '';
-    const filenameLabel = $('excel-import-filename');
-    if (filenameLabel) filenameLabel.textContent = 'Cliquez ici pour choisir un fichier Excel';
-
-    const previewContainer = $('excel-preview-container');
-    if (previewContainer) previewContainer.classList.add('hidden');
-
-    const confirmBtn = $('btn-confirm-import-excel');
-    if (confirmBtn) confirmBtn.disabled = true;
-
-    window._excelImportList = [];
-
-    const modal = $('excel-import-modal');
-    if (modal) {
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-  };
-
-  window.closeImportExcelModal = function () {
-    const modal = $('excel-import-modal');
-    if (modal) {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-  };
-
-  // 3. TÉLÉCHARGER UN MODÈLE EXCEL TYPE
-  window.downloadExcelTemplate = function () {
-    if (typeof XLSX === 'undefined') {
-      toast('⚠️ Librairie Excel non disponible.');
-      return;
-    }
-    const cls = getActiveRegistryClass();
-    const className = cls ? cls.name : '3ème A';
-
-    const headers = ['Nom', 'Prénom', 'Sexe (M/F)', 'Parent / Tuteur', 'Téléphone', 'Mensualité (FCFA)'];
-    const sampleRows = [
-      ['DIOP', 'Fatou', 'F', 'Moussa Diop', '+221 77 123 45 67', 30000],
-      ['NDIAYE', 'Babacar', 'M', 'Aïssatou Ndiaye', '+221 78 234 56 78', 30000],
-      ['FALL', 'Modou', 'M', 'Cheikh Fall', '+221 76 345 67 89', 30000]
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
-    ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 20 }, { wch: 18 }];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Modele_Eleves');
-
-    XLSX.writeFile(wb, 'Modele_Import_Eleves_' + className.replace(/\s/g, '_') + '.xlsx');
-    toast('✅ Modèle Excel téléchargé ! Remplissez-le puis glissez-le dans la fenêtre.');
-  };
-
-  // 4. LECTURE ET PARSING DU FICHIER EXCEL SÉLECTIONNÉ
-  window.handleExcelImportFile = function (e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    if (typeof XLSX === 'undefined') {
-      toast('⚠️ La librairie Excel n\'est pas disponible. Vérifiez votre connexion internet.');
-      return;
-    }
-
-    const filenameLabel = $('excel-import-filename');
-    if (filenameLabel) filenameLabel.textContent = '📄 ' + file.name + ' (' + Math.round(file.size / 1024) + ' Ko)';
-
-    const reader = new FileReader();
-    reader.onload = function (evt) {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-        if (!rawJson.length) {
-          toast('⚠️ Le fichier Excel sélectionné est vide.');
-          return;
-        }
-
-        // Fonction pour normaliser les noms de colonnes
-        const cleanKey = k => String(k || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-
-        const parsed = [];
-        rawJson.forEach(row => {
-          let valNom = '', valPrenom = '', valSexe = '', valParent = '', valPhone = '', valFee = '';
-
-          for (const [k, v] of Object.entries(row)) {
-            const ck = cleanKey(k);
-            if (ck === 'nom' || ck === 'nomfamille' || ck === 'lastname') valNom = String(v).trim();
-            else if (ck === 'prenom' || ck === 'firstname') valPrenom = String(v).trim();
-            else if (ck === 'nomprenom' || ck === 'nomcomplet' || ck === 'eleve') {
-              if (!valNom) valNom = String(v).trim();
-            }
-            else if (ck.includes('sexe') || ck.includes('genre') || ck === 'sex' || ck === 'mf') valSexe = String(v).trim();
-            else if (ck.includes('parent') || ck.includes('tuteur') || ck.includes('responsable')) valParent = String(v).trim();
-            else if (ck.includes('tel') || ck.includes('phone') || ck.includes('contact') || ck.includes('whatsapp')) valPhone = String(v).trim();
-            else if (ck.includes('mensualite') || ck.includes('frais') || ck.includes('scolarite') || ck.includes('fee')) valFee = String(v).trim();
-          }
-
-          let fullName = '';
-          if (valNom && valPrenom) fullName = valNom.toUpperCase() + ' ' + valPrenom;
-          else if (valNom) fullName = valNom;
-          else if (valPrenom) fullName = valPrenom;
-
-          if (!fullName) return; // ignorer les lignes vides
-
-          let sex = 'M';
-          const upSex = valSexe.toUpperCase();
-          if (upSex.startsWith('F') || upSex.includes('FILLE') || upSex.includes('FEMME')) sex = 'F';
-
-          const feeNum = parseInt(String(valFee).replace(/\D/g, ''), 10) || 30000;
-
-          parsed.push({
-            nom: fullName,
-            sexe: sex,
-            parent: valParent || 'Parent / Tuteur',
-            phone: valPhone || '—',
-            fee: feeNum
-          });
-        });
-
-        if (!parsed.length) {
-          toast('⚠️ Aucune ligne d’élève valide trouvée dans ce fichier Excel.');
-          return;
-        }
-
-        window._excelImportList = parsed;
-
-        // Afficher l'aperçu dans le tableau
-        const tbody = $('excel-preview-tbody');
-        if (tbody) {
-          tbody.innerHTML = parsed.map((s, idx) => `
-            <tr class="hover:bg-slate-50">
-              <td class="py-2 px-3 text-center font-bold text-slate-400">${idx + 1}</td>
-              <td class="py-2 px-3 font-bold text-slate-900">${s.nom}</td>
-              <td class="py-2 px-3 text-center font-bold ${s.sexe === 'F' ? 'text-pink-600' : 'text-sky-600'}">${s.sexe === 'F' ? '👧 Fille' : '👦 Garçon'}</td>
-              <td class="py-2 px-3 text-slate-700">${s.parent}</td>
-              <td class="py-2 px-3 font-mono text-slate-600">${s.phone}</td>
-            </tr>
-          `).join('');
-        }
-
-        const countBadge = $('excel-preview-count');
-        if (countBadge) countBadge.textContent = `${parsed.length} élève(s) détecté(s)`;
-
-        const container = $('excel-preview-container');
-        if (container) container.classList.remove('hidden');
-
-        const confirmBtn = $('btn-confirm-import-excel');
-        if (confirmBtn) {
-          confirmBtn.disabled = false;
-          confirmBtn.innerHTML = `<span>🚀 Insérer les ${parsed.length} élèves dans la classe</span>`;
-        }
-
-        toast(`✨ ${parsed.length} élève(s) détecté(s) avec succès !`);
-
-      } catch (err) {
-        console.error(err);
-        toast('⚠️ Erreur lors de la lecture du fichier Excel : ' + (err.message || err));
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  // 5. CONFIRMATION DE L'INSERTION DANS LA CLASSE
-  window.confirmExcelImport = async function () {
-    const cls = getActiveRegistryClass();
-    if (!cls) {
-      toast('⚠️ Classe introuvable.');
-      return;
-    }
-
-    const list = window._excelImportList;
-    if (!list || !list.length) {
-      toast('⚠️ Aucun élève à importer.');
-      return;
-    }
-
-    const confirmBtn = $('btn-confirm-import-excel');
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Insertion en cours…';
-    }
-
-    try {
-      const supabaseInserts = [];
-      let baseMatNum = typeof nextMatriculeNum !== 'undefined' ? nextMatriculeNum : 500;
-
-      list.forEach(item => {
-        const mat = 'SN-2025-' + String(baseMatNum++).padStart(4, '0');
-        const studentObj = {
-          nom: item.nom,
-          matricule: mat,
-          sexe: item.sexe,
-          classe: cls.name,
-          parent: item.parent,
-          phone: item.phone,
-          fee: item.fee.toLocaleString('fr-FR') + ' FCFA',
-          statut: 'Non payé',
-          statutClass: 'bg-amber-100 text-amber-800'
-        };
-
-        if (typeof allStudentsDB !== 'undefined') {
-          allStudentsDB.push(studentObj);
-        }
-
-        if (window.sb) {
-          const schoolId = (window.SCHOOL && window.SCHOOL.id) || undefined;
-          const sRow = {
-            full_name: item.nom,
-            matricule: mat,
-            sex: item.sexe,
-            class_id: cls.id,
-            parent_name: item.parent,
-            phone: item.phone,
-            monthly_fee: item.fee
-          };
-          if (schoolId) sRow.school_id = schoolId;
-          supabaseInserts.push(sRow);
-        }
-      });
-
-      if (typeof nextMatriculeNum !== 'undefined') nextMatriculeNum = baseMatNum;
-
-      // Augmenter l'effectif de la classe
-      cls.effectif = (cls.effectif || 0) + list.length;
-
-      // Si Supabase est connecté, insérer en ligne dans la table 'students'
-      if (window.sb && supabaseInserts.length) {
-        try {
-          const { error } = await window.sb.from('students').insert(supabaseInserts);
-          if (error) console.warn('Supabase students insert warning:', error.message);
-          else console.log('✅ Synchronisé avec Supabase Cloud :', supabaseInserts.length, 'élèves');
-        } catch (e) {
-          console.warn('Supabase offline or permission error:', e);
-        }
-      }
-
-      // Rafraîchir les affichages
-      if (typeof renderRegistry === 'function') renderRegistry();
-      if (typeof renderRegistryList === 'function') renderRegistryList();
-      if (typeof renderClassesMgtTable === 'function') renderClassesMgtTable();
-      if (typeof renderCashStudents === 'function') renderCashStudents();
-
-      closeImportExcelModal();
-      toast(`🎉 ${list.length} élève(s) inséré(s) avec succès dans la classe ${cls.name} !`);
-
-    } catch (err) {
-      console.error(err);
-      toast('⚠️ Erreur lors de l’insertion : ' + (err.message || err));
-    } finally {
-      if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = `<span>🚀 Insérer les élèves dans la classe</span>`;
-      }
-    }
-  };
-
-  // 6. EXPORT EXCEL DE LA CLASSE CONCERNÉE
   window.exportRegistryClass = function () {
     if (typeof XLSX === 'undefined') {
       toast('⚠️ La librairie Excel n\'est pas chargée. Vérifiez votre connexion internet.');
       return;
     }
-    const cls = getActiveRegistryClass();
+    const cls = classesMgtData.find(c => c.id === registryClassId);
     if (!cls) { toast('⚠️ Aucune classe sélectionnée.'); return; }
 
-    const students = (typeof allStudentsDB !== 'undefined' ? allStudentsDB : [])
-      .filter(s => s.classe === cls.name || (typeof classKey === 'function' && classKey(s.classe) === classKey(cls.name)))
-      .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
+    const students = allStudentsDB
+      .filter(s => s.classe === cls.name || classKey(s.classe) === classKey(cls.name))
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
 
     if (!students.length) {
       toast('⚠️ Aucun élève à exporter dans cette classe.');
@@ -706,8 +91,8 @@
     const sc = SC();
     const data = [
       [sc.name || 'SunuSchool', '', '', '', '', '', ''],
-      ['Classe : ' + cls.name, 'Niveau : ' + (cls.level || '—'), '', '', '', '', ''],
-      ['Prof. Principal : ' + (cls.pp || 'Non assigné'), 'Salle : ' + (cls.room || '—'), '', '', 'Effectif : ' + cls.effectif, '', ''],
+      ['Classe : ' + cls.name, 'Niveau : ' + cls.level, '', '', '', '', ''],
+      ['Prof. Principal : ' + cls.pp, 'Salle : ' + (cls.room || '—'), '', '', 'Effectif : ' + cls.effectif, '', ''],
       ['Année scolaire : ' + (sc.schoolYear || '2025-2026'), '', '', '', '', '', ''],
       [], // Ligne vide
       ['N°', 'Nom & Prénom', 'Matricule', 'Sexe', 'Parent / Tuteur', 'Téléphone', 'Scolarité', 'Statut'],
@@ -996,68 +381,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Section Gestion des Administrateurs (multi-admin) -->
-      <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-        <div class="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span class="bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full">Multi-Administrateurs</span>
-            <h3 class="font-black text-slate-900 text-lg mt-1 flex items-center gap-2">
-              <span>👥</span> Administrateurs de l'Établissement
-            </h3>
-            <p class="text-xs text-slate-500">Tous les administrateurs enregistrés ont les pleins pouvoirs : créer des classes, inscrire élèves et enseignants, et gérer l'école.</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Formulaire création administrateur -->
-          <div class="lg:col-span-1 bg-slate-50/70 border border-slate-200 rounded-2xl p-4 space-y-3">
-            <h4 class="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
-              <span>➕</span> Nouveau Compte Administrateur
-            </h4>
-            <form onsubmit="handleCreateAdmin(event)" class="space-y-3 text-xs">
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Nom complet *</label>
-                <input type="text" id="adm-nom" required placeholder="Ex: M. Mamadou Ba" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              </div>
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Matricule <span class="font-normal text-slate-400">(laisser vide pour auto)</span></label>
-                <input type="text" id="adm-mat" placeholder="Ex: ADM-2025-002" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-mono font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              </div>
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Mot de passe <span class="font-normal text-slate-400">(laisser vide pour auto)</span></label>
-                <input type="text" id="adm-pwd" placeholder="8 caractères minimum" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-mono font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              </div>
-              <button type="submit" class="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold py-2.5 rounded-xl shadow transition">
-                ✓ Créer l'Administrateur
-              </button>
-            </form>
-          </div>
-
-          <!-- Table des administrateurs -->
-          <div class="lg:col-span-2 overflow-hidden border border-slate-200 rounded-2xl">
-            <div class="bg-slate-100/70 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-700">Comptes Administrateurs Actifs</span>
-              <button type="button" onclick="loadAdminsList()" class="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold">🔄 Actualiser</button>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th class="py-2.5 px-4">Administrateur</th>
-                    <th class="py-2.5 px-4">Matricule</th>
-                    <th class="py-2.5 px-4">Date de création</th>
-                    <th class="py-2.5 px-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody id="admins-table-body" class="divide-y divide-slate-100">
-                  <tr><td colspan="4" class="p-4 text-center text-slate-400">Chargement des administrateurs…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
     `;
     main.appendChild(tab);
   }
@@ -1114,7 +437,7 @@
     } catch (_) {}
   }
 
-  window.saveSchoolConfig = async function () {
+  window.saveSchoolConfig = function () {
     const s = window.SCHOOL;
     if (!s) { toast('⚠️ Module de configuration non chargé.'); return; }
 
@@ -1131,27 +454,6 @@
 
     // Sauvegarder en localStorage pour persistance session
     try { localStorage.setItem('sunuschool-config', JSON.stringify(s)); } catch (_) {}
-
-    // Sauvegarder dans Supabase si connecté en tant qu'admin
-    if (window.sb && typeof currentRole !== 'undefined' && currentRole === 'admin' && s.id) {
-      try {
-        const { error } = await window.sb.from('schools').update({
-          name: s.name,
-          short_name: s.shortName,
-          city: s.city,
-          phone: s.phone,
-          email: s.email,
-          ia: s.ia,
-          ief: s.ief,
-          school_year: s.schoolYear,
-          country: s.country,
-          logo: s.logo
-        }).eq('id', s.id);
-        if (error) console.warn('Erreur mise à jour école Supabase :', error);
-      } catch (errSup) {
-        console.warn('Erreur sauvegarde Supabase :', errSup);
-      }
-    }
 
     // Réappliquer le branding partout
     applySchoolBranding();
@@ -1196,13 +498,6 @@
       if (ALLOWED.admin && !ALLOWED.admin.includes('school-settings')) {
         ALLOWED.admin.push('school-settings');
       }
-      if (typeof ALL_TABS !== 'undefined' && !ALL_TABS.includes('school-settings')) {
-        ALL_TABS.push('school-settings');
-      }
-      const b = $('btn-school-settings');
-      if (b && typeof currentRole !== 'undefined') {
-        b.classList.toggle('hidden', currentRole !== 'admin');
-      }
     }, 200);
   }
 
@@ -1216,7 +511,7 @@
       if (saved) Object.assign(window.SCHOOL, JSON.parse(saved));
     } catch (_) {}
 
-    detectAndLoadSchool();
+    applySchoolBranding();
     checkSupabaseStatus();
     createSettingsTab();
     patchBulletinHeader();
@@ -1235,9 +530,6 @@
         if (id === 'school-settings') {
           fillSettingsForm();
           updateSystemStats();
-          if (typeof window.loadAdminsList === 'function') {
-            window.loadAdminsList();
-          }
         }
       };
     }
