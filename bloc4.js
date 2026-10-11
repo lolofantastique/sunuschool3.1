@@ -1,13 +1,11 @@
-/* SunuSchool - Bloc 4 : écritures de l'administration (classes, enseignants, élèves, comptes, admins)
-   Chargé APRÈS script.js. Chaque action est enregistrée dans Supabase, puis l'écran est rechargé depuis la base.
-   Tous les administrateurs authentifiés de l'école ont les pleins pouvoirs de gestion. */
+/* SunuSchool - Bloc 4 : écritures de l'administration (classes, enseignants, élèves, comptes)
+   Chargé APRÈS script.js. Chaque action est enregistrée dans Supabase, puis l'écran est rechargé depuis la base. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
   const sbc = () => window.sb;
   const IDS = () => window.sunuIds || { student: {}, subject: {}, class: {} };
   const isAdmin = () => typeof currentRole !== 'undefined' && currentRole === 'admin';
-  const getSchoolId = () => (window.SCHOOL && window.SCHOOL.id) || undefined;
   const toast = m => { try { showToast(m); } catch (_) { alert(m); } };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const key = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '').replace('terminale', 'tle');
@@ -19,14 +17,11 @@
     if (/row-level security|permission/i.test(m)) return 'Action refusée : réservée à l’administration.';
     return m;
   }
-
   async function reload(msg) {
     try { if (window.sunuReload) await window.sunuReload(); } catch (e) { console.error(e); }
     if (msg) toast(msg);
   }
-
   async function callFn(body) {
-    if (!sbc()) throw new Error('Connexion à la base de données indisponible.');
     const { data, error } = await sbc().functions.invoke('create-account', { body });
     if (error) {
       let detail = error.message;
@@ -36,20 +31,11 @@
     if (data && data.error) throw new Error(data.error);
     return data;
   }
-
-  const guard = () => {
-    if (!isAdmin()) {
-      toast('🔒 Réservé à l’administration.');
-      return false;
-    }
-    return true;
-  };
-
+  const guard = () => { if (!isAdmin()) { toast('🔒 Réservé à l’administration.'); return false; } return true; };
   const teacherIdByName = n => { const t = teachersData.find(x => x.name === n); return t ? t.id : null; };
   const ppValue = v => { v = String(v || '').trim(); return !v || /^pas encore/i.test(v) ? null : teacherIdByName(v); };
   const digits = s => String(s || '').replace(/\D/g, '');
 
-  /* ── Modale universelle d'identifiants (élèves, enseignants, administrateurs) ── */
   function credModal() {
     let m = $('b4-cred');
     if (m) return m;
@@ -64,13 +50,10 @@
     document.body.appendChild(m);
     return m;
   }
-
   let lastCred = null;
   window.b4CloseCred = () => { const m = $('b4-cred'); if (m) { m.classList.add('hidden'); m.classList.remove('flex'); } };
-
   function showCred(c) {
-    lastCred = c;
-    const m = credModal();
+    lastCred = c; const m = credModal();
     $('b4-title').textContent = c.title;
     $('b4-note').textContent = c.note;
     $('b4-box').innerHTML = '<p><span class="text-slate-500">Nom :</span> <b>' + esc(c.name) + '</b></p>' +
@@ -80,27 +63,18 @@
       ? '<button type="button" onclick="b4Copy()" class="flex-1 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs py-3 rounded-xl">📋 Copier</button>' +
         '<button type="button" onclick="b4Print()" class="flex-1 bg-slate-900 hover:bg-black text-white font-bold text-xs py-3 rounded-xl">🖨️ Imprimer</button>'
       : '<button type="button" onclick="b4Reset()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs py-3 rounded-xl">🔄 Générer un nouveau mot de passe</button>';
-    m.classList.remove('hidden');
-    m.classList.add('flex');
+    m.classList.remove('hidden'); m.classList.add('flex');
   }
-
   window.b4Copy = () => {
     if (!lastCred) return;
     const tx = 'SunuSchool\nNom : ' + lastCred.name + '\nMatricule : ' + lastCred.matricule + '\nMot de passe : ' + lastCred.password;
-    (navigator.clipboard ? navigator.clipboard.writeText(tx) : Promise.reject())
-      .then(() => toast('✅ Identifiants copiés.'))
-      .catch(() => toast('⚠️ Copiez les identifiants affichés.'));
+    (navigator.clipboard ? navigator.clipboard.writeText(tx) : Promise.reject()).then(() => toast('✅ Identifiants copiés.')).catch(() => toast('⚠️ Copiez les identifiants affichés.'));
   };
-
   window.b4Print = () => {
-    if (!lastCred) return;
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write('<html><head><title>Identifiants SunuSchool</title></head><body style="font-family:Arial;padding:30px"><h2>SunuSchool — Identifiants de connexion</h2><p><b>Nom :</b> ' + esc(lastCred.name) + '</p><p><b>Matricule :</b> ' + esc(lastCred.matricule) + '</p><p><b>Mot de passe :</b> ' + esc(lastCred.password) + '</p><p style="color:#666;font-size:12px;margin-top:20px">Conservez ces informations de manière confidentielle. Le mot de passe ne sera plus affiché.</p></body></html>');
-    w.document.close();
-    w.print();
+    if (!lastCred) return; const w = window.open('', '_blank'); if (!w) return;
+    w.document.write('<html><head><title>Identifiants SunuSchool</title></head><body style="font-family:Arial;padding:30px"><h2>SunuSchool — Identifiants</h2><p><b>Nom :</b> ' + esc(lastCred.name) + '</p><p><b>Matricule :</b> ' + esc(lastCred.matricule) + '</p><p><b>Mot de passe :</b> ' + esc(lastCred.password) + '</p><p>Conservez ces informations de manière confidentielle. Le mot de passe ne sera plus affiché.</p></body></html>');
+    w.document.close(); w.print();
   };
-
   window.b4Reset = async () => {
     if (!lastCred || !guard()) return;
     if (!confirm('Générer un nouveau mot de passe pour ' + lastCred.name + ' ? L’ancien ne fonctionnera plus.')) return;
@@ -109,7 +83,6 @@
       showCred({ title: 'Nouveau mot de passe', note: 'Remettez-le à la personne concernée. Il ne sera plus affiché ensuite.', name: r.full_name || lastCred.name, matricule: r.matricule, password: r.password });
     } catch (e) { toast('⚠️ ' + human(e)); }
   };
-
   window.showStudentCredentials = s => {
     if (!s || !guard()) return;
     showCred({ title: 'Identifiants de l’élève', note: 'Le mot de passe est chiffré et ne peut pas être relu. Vous pouvez en générer un nouveau.', name: s.nom, matricule: s.matricule });
@@ -117,56 +90,32 @@
   window.resetStudentPassword = mat => { const s = allStudentsDB.find(x => x.matricule === mat); if (s) window.showStudentCredentials(s); };
   window.findStudentPassword = () => {};
 
-  /* ============================================================
-     1. GESTION DES CLASSES (pour TOUS les administrateurs)
-     ============================================================ */
   window.handleCreateClass = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
     const name = $('cls-name').value.trim(), level = $('cls-level').value, room = $('cls-room').value.trim();
-    if (!name) return toast('⚠️ Nom de la classe obligatoire.');
-
-    const schoolId = getSchoolId();
-    const payload = {
-      name,
-      level,
-      room: room || null,
-      head_teacher_id: ppValue($('cls-pp').value)
-    };
-    if (schoolId) payload.school_id = schoolId;
-
-    const { error } = await sbc().from('classes').insert(payload);
+    if (!name) return;
+    const { error } = await sbc().from('classes').insert({ name, level, room: room || null, head_teacher_id: ppValue($('cls-pp').value) });
     if (error) return toast('⚠️ ' + human(error));
-
     ['cls-name', 'cls-room', 'cls-pp'].forEach(i => { if ($(i)) $(i).value = ''; });
-    await reload('✅ Classe ' + name + ' créée avec succès.');
+    await reload('✅ Classe ' + name + ' créée.');
   };
-
   window.handleEditClass = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
     const id = Number($('edit-cls-id').value), name = $('edit-cls-name').value.trim();
-    if (!id || !name) return toast('⚠️ Nom de la classe obligatoire.');
-
-    const { error } = await sbc().from('classes').update({
-      name,
-      level: $('edit-cls-level').value,
-      room: $('edit-cls-room').value.trim() || null,
-      head_teacher_id: ppValue($('edit-cls-pp').value)
-    }).eq('id', id);
-
+    if (!id || !name) return;
+    const { error } = await sbc().from('classes').update({ name, level: $('edit-cls-level').value, room: $('edit-cls-room').value.trim() || null, head_teacher_id: ppValue($('edit-cls-pp').value) }).eq('id', id);
     if (error) return toast('⚠️ ' + human(error));
     if (typeof closeModal === 'function') closeModal('class-edit-modal');
     await reload('✅ Classe ' + name + ' modifiée.');
   };
-
   window.moveClassToTrash = async function (id) {
     if (!guard()) return;
     const { error } = await sbc().from('classes').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     if (error) return toast('⚠️ ' + human(error));
     await reload('🗑️ Classe déplacée dans la corbeille (30 jours).');
   };
-
   window.restoreClass = async function (id) {
     if (!guard()) return;
     const { error } = await sbc().from('classes').update({ deleted_at: null }).eq('id', id);
@@ -174,7 +123,6 @@
     await reload('✅ Classe restaurée.');
     if (typeof renderTrash === 'function') renderTrash();
   };
-
   window.purgeClass = async function (btn, id) {
     if (!guard()) return;
     if (!btn.dataset.armed) {
@@ -188,77 +136,29 @@
     if (typeof renderTrash === 'function') renderTrash();
   };
 
-  /* ============================================================
-     2. GESTION DES ENSEIGNANTS (pour TOUS les administrateurs)
-     ============================================================ */
   window.handleTeacherSubmit = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
     const id = Number($('t-id').value) || 0, name = $('t-name').value.trim(), subject = $('t-subject').value.trim();
     const phone = $('t-phone').value.trim(), coeff = Number($('t-coeff') ? $('t-coeff').value : 1);
-    const matInput = $('t-matricule') ? $('t-matricule').value.trim().toUpperCase() : '';
-
     if (!name || !subject) return toast('⚠️ Nom et matière obligatoires.');
     if (digits(phone).length < 9) return toast('⚠️ Numéro de téléphone invalide.');
     if (!(coeff >= 0.5 && coeff <= 10)) return toast('⚠️ Coefficient invalide (0,5 à 10).');
-
-    const btn = e && e.submitter;
-    if (btn) btn.disabled = true;
-
     try {
       if (id) {
-        // Modification fiche enseignant existant
         const t = teachersData.find(x => x.id === id);
-        if (t && matInput && matInput !== t.matricule) {
-          return toast('⚠️ Le matricule ne peut pas être modifié : il identifie le compte.');
-        }
+        if (t && $('t-matricule').value.trim() && $('t-matricule').value.trim() !== t.matricule) return toast('⚠️ Le matricule ne peut pas être modifié : il identifie le compte.');
         const { error } = await sbc().from('teachers').update({ full_name: name, subject, phone, coeff }).eq('id', id);
         if (error) throw error;
         if (typeof resetTeacherForm === 'function') resetTeacherForm();
         return await reload('✅ Fiche de ' + name + ' corrigée.');
       }
-
-      // Nouvel enseignant : appel Edge Function (crée Auth + Profile + table Teachers)
-      const reqBody = {
-        action: 'create',
-        role: 'teacher',
-        full_name: name,
-        subject,
-        phone,
-        coeff
-      };
-      if (matInput) reqBody.matricule = matInput;
-
-      const r = await callFn(reqBody);
-
-      // Garantie côté client : upsert direct dans la table 'teachers'
-      const schoolId = getSchoolId();
-      const tRow = {
-        matricule: r.matricule,
-        full_name: name,
-        subject,
-        phone,
-        coeff
-      };
-      if (schoolId) tRow.school_id = schoolId;
-      await sbc().from('teachers').upsert(tRow, { onConflict: 'school_id,matricule' });
-
+      const r = await callFn({ role: 'teacher', full_name: name, subject, phone, coeff });
       if (typeof resetTeacherForm === 'function') resetTeacherForm();
       await reload('✅ ' + name + ' enregistré(e). Matricule ' + r.matricule);
-      showCred({
-        title: 'Compte enseignant créé',
-        note: 'Remettez ces identifiants à l’enseignant. Le mot de passe ne sera plus affiché.',
-        name: r.full_name || name,
-        matricule: r.matricule,
-        password: r.password
-      });
-    } catch (err) {
-      toast('⚠️ ' + human(err));
-    } finally {
-      if (btn) btn.disabled = false;
-    }
+      showCred({ title: 'Compte enseignant créé', note: 'Remettez ces identifiants à l’enseignant. Le mot de passe ne sera plus affiché.', name: r.full_name, matricule: r.matricule, password: r.password });
+    } catch (err) { toast('⚠️ ' + human(err)); }
   };
-
   window.deleteTeacher = async function (btn, id) {
     if (!guard()) return;
     if (!btn.dataset.armed) {
@@ -266,26 +166,10 @@
       setTimeout(() => { if (!btn.isConnected) return; delete btn.dataset.armed; btn.textContent = 'Supprimer'; btn.classList.remove('bg-rose-600', 'text-white'); }, 3000);
       return;
     }
-    const t = teachersData.find(x => x.id === id);
-    if (!t) return;
-
-    try {
-      const { error } = await sbc().from('teachers').delete().eq('id', id);
-      if (error) throw error;
-
-      // Nettoyer compte Auth & profil
-      try {
-        await callFn({ action: 'delete', role: 'teacher', matricule: t.matricule });
-      } catch (fnErr) {
-        console.warn('create-account delete warning:', fnErr);
-      }
-
-      await reload('✅ ' + t.name + ' retiré(e) du registre.');
-    } catch (err) {
-      toast('⚠️ ' + human(err));
-    }
+    const t = teachersData.find(x => x.id === id); if (!t) return;
+    try { await callFn({ action: 'delete', role: 'teacher', matricule: t.matricule }); await reload('✅ ' + t.name + ' retiré(e) du registre.'); }
+    catch (err) { toast('⚠️ ' + human(err)); }
   };
-
   window.handleAddSlot = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
@@ -293,15 +177,10 @@
     const r = addSlot(t, $('sl-day').value, $('sl-start').value, $('sl-end').value, $('sl-class').value.trim(), $('sl-room').value.trim());
     if (!r.ok) return toast('⚠️ ' + r.msg);
     const classId = IDS().class[r.cls.name] || r.cls.id;
-    const payload = { teacher_id: t.id, class_id: classId, day: r.slot.day, start_time: r.slot.start, end_time: r.slot.end, room: r.slot.room || null };
-    const schoolId = getSchoolId();
-    if (schoolId) payload.school_id = schoolId;
-
-    const { error } = await sbc().from('teacher_slots').insert(payload);
+    const { error } = await sbc().from('teacher_slots').insert({ teacher_id: t.id, class_id: classId, day: r.slot.day, start_time: r.slot.start, end_time: r.slot.end, room: r.slot.room || null });
     if (error) { await reload(); return toast('⚠️ ' + human(error)); }
     await reload('✅ Créneau ajouté : ' + r.slot.day + ' ' + r.slot.start + '-' + r.slot.end + ' ' + r.cls.name + '.');
   };
-
   window.removeSlot = async function (idx) {
     if (!guard()) return;
     const t = teachersData.find(x => x.id === selectedTeacherId); if (!t || !t.slots[idx]) return;
@@ -312,9 +191,6 @@
     await reload('✅ Créneau retiré.');
   };
 
-  /* ============================================================
-     3. INSCRIPTION DES ÉLÈVES (pour TOUS les administrateurs)
-     ============================================================ */
   window.handleEnrollStudent = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
@@ -324,57 +200,15 @@
     const parent = $('stu-parent').value.trim(), phone = $('stu-phone').value.trim();
     if (!nom || !prenom) return toast('⚠️ Nom et prénom obligatoires.');
     if (phone && digits(phone).length < 9) return toast('⚠️ Numéro de téléphone invalide.');
-
-    const btn = e && e.submitter;
-    if (btn) btn.disabled = true;
-
+    const btn = e && e.submitter; if (btn) btn.disabled = true;
     try {
-      const classId = IDS().class[cls.name] || cls.id;
-      const previewMat = $('matricule-preview') ? $('matricule-preview').textContent.trim() : '';
-      const reqBody = {
-        action: 'create',
-        role: 'student',
-        full_name: nom + ' ' + prenom,
-        sex: $('stu-sexe').value,
-        class_id: classId,
-        parent_name: parent,
-        phone,
-        monthly_fee: parseInt($('stu-fee').value, 10) || 0
-      };
-      if (previewMat && /^SN-/i.test(previewMat)) reqBody.matricule = previewMat;
-
-      const r = await callFn(reqBody);
-
-      // Garantie côté client : upsert direct dans la table 'students'
-      const schoolId = getSchoolId();
-      const sRow = {
-        matricule: r.matricule,
-        full_name: nom + ' ' + prenom,
-        sex: $('stu-sexe').value,
-        class_id: classId,
-        parent_name: parent || null,
-        phone: phone || null,
-        monthly_fee: parseInt($('stu-fee').value, 10) || 0
-      };
-      if (schoolId) sRow.school_id = schoolId;
-      await sbc().from('students').upsert(sRow, { onConflict: 'school_id,matricule' });
-
+      const r = await callFn({ role: 'student', full_name: nom + ' ' + prenom, sex: $('stu-sexe').value, class_id: cls.id, parent_name: parent, phone, monthly_fee: parseInt($('stu-fee').value, 10) || 0 });
       ['stu-nom', 'stu-prenom', 'stu-parent', 'stu-phone'].forEach(i => { if ($(i)) $(i).value = ''; });
       await reload('🎓 ' + nom + ' ' + prenom + ' inscrit(e) en ' + cls.name + '. Matricule ' + r.matricule);
-      showCred({
-        title: 'Compte élève créé',
-        note: 'Remettez ces identifiants à l’élève ou au parent. Le mot de passe ne sera plus affiché.',
-        name: r.full_name || (nom + ' ' + prenom),
-        matricule: r.matricule,
-        password: r.password
-      });
-    } catch (err) {
-      toast('⚠️ ' + human(err));
-    } finally {
-      if (btn) btn.disabled = false;
-    }
+      showCred({ title: 'Compte élève créé', note: 'Remettez ces identifiants à l’élève ou au parent. Le mot de passe ne sera plus affiché.', name: r.full_name, matricule: r.matricule, password: r.password });
+    } catch (err) { toast('⚠️ ' + human(err)); }
+    finally { if (btn) btn.disabled = false; }
   };
-
   window.handleEditStudent = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
@@ -384,154 +218,27 @@
     if ($('se-matricule').value.trim() && $('se-matricule').value.trim() !== s.matricule) return toast('⚠️ Le matricule ne peut pas être modifié : il identifie le compte.');
     if (!cls) return toast('⚠️ La classe « ' + $('se-class').value.trim() + ' » n’existe pas.');
     if (digits($('se-phone').value).length < 9) return toast('⚠️ Numéro de téléphone invalide.');
-
-    const sid = IDS().student[s.matricule];
-    if (!sid) return toast('⚠️ Élève inconnu.');
-
-    const { error } = await sbc().from('students').update({
-      full_name: nom,
-      sex: $('se-sexe').value,
-      class_id: cls.id,
-      parent_name: $('se-parent').value.trim() || null,
-      phone: $('se-phone').value.trim(),
-      monthly_fee: parseInt($('se-fee').value, 10) || 0
-    }).eq('id', sid);
-
+    const sid = IDS().student[s.matricule]; if (!sid) return toast('⚠️ Élève inconnu.');
+    const { error } = await sbc().from('students').update({ full_name: nom, sex: $('se-sexe').value, class_id: cls.id, parent_name: $('se-parent').value.trim() || null, phone: $('se-phone').value.trim(), monthly_fee: parseInt($('se-fee').value, 10) || 0 }).eq('id', sid);
     if (error) return toast('⚠️ ' + human(error));
-
     const back = typeof editStudentFromDossier !== 'undefined' && editStudentFromDossier;
     if (typeof closeModal === 'function') closeModal('student-edit-modal');
     await reload('✅ Informations de ' + nom + ' corrigées.');
-    if (back && typeof openDossier === 'function') {
-      const j = allStudentsDB.findIndex(x => x.matricule === s.matricule);
-      if (j >= 0) openDossier(j);
-    }
+    if (back && typeof openDossier === 'function') { const j = allStudentsDB.findIndex(x => x.matricule === s.matricule); if (j >= 0) openDossier(j); }
   };
-
   window.deleteStudent = async function (idx) {
     if (!guard()) return;
-    const s = allStudentsDB[idx];
-    if (!s) return;
+    const s = allStudentsDB[idx]; if (!s) return;
     if (!confirm('Supprimer définitivement ' + s.nom + ' (' + s.matricule + ') et son compte ? Impossible si des notes, absences ou paiements sont enregistrés.')) return;
-
-    try {
-      const sid = IDS().student[s.matricule];
-      if (sid) {
-        const { error } = await sbc().from('students').delete().eq('id', sid);
-        if (error) throw error;
-      }
-
-      // Nettoyer compte Auth & profil
-      try {
-        await callFn({ action: 'delete', role: 'student', matricule: s.matricule });
-      } catch (fnErr) {
-        console.warn('create-account delete warning:', fnErr);
-      }
-
-      await reload('✅ ' + s.nom + ' supprimé(e).');
-    } catch (err) {
-      toast('⚠️ ' + human(err));
-    }
-  };
-
-  /* ============================================================
-     4. CRÉATION & GESTION DES ADMINISTRATEURS (multi-admin)
-     ============================================================ */
-  window.handleCreateAdmin = async function (e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!guard()) return;
-
-    const nom = $('adm-nom') ? $('adm-nom').value.trim() : '';
-    const mat = $('adm-mat') ? $('adm-mat').value.trim().toUpperCase() : '';
-    const pwd = $('adm-pwd') ? $('adm-pwd').value.trim() : '';
-
-    if (!nom) return toast('⚠️ Nom complet de l’administrateur obligatoire.');
-    if (pwd && pwd.length < 8) return toast('⚠️ Le mot de passe doit comporter au moins 8 caractères.');
-
-    const btn = e && e.submitter;
-    if (btn) btn.disabled = true;
-
-    try {
-      const reqBody = { action: 'create', role: 'admin', full_name: nom };
-      if (mat) reqBody.matricule = mat;
-      if (pwd) reqBody.password = pwd;
-
-      const r = await callFn(reqBody);
-
-      ['adm-nom', 'adm-mat', 'adm-pwd'].forEach(i => { if ($(i)) $(i).value = ''; });
-      await reload('🧑‍💼 Compte administrateur créé pour ' + nom + '.');
-      showCred({
-        title: 'Nouveau compte Administrateur',
-        note: 'Remettez ces identifiants au nouvel administrateur. Il aura les pleins droits sur l’établissement.',
-        name: r.full_name || nom,
-        matricule: r.matricule,
-        password: r.password
-      });
-
-      if (typeof window.loadAdminsList === 'function') {
-        window.loadAdminsList();
-      }
-    } catch (err) {
-      toast('⚠️ ' + human(err));
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  };
-
-  window.loadAdminsList = async function () {
-    const tbody = $('admins-table-body');
-    if (!tbody || !sbc() || !isAdmin()) return;
-
-    try {
-      const schoolId = getSchoolId();
-      let query = sbc().from('profiles').select('id, matricule, full_name, created_at, role').eq('role', 'admin');
-      if (schoolId) query = query.eq('school_id', schoolId);
-      const { data, error } = await query.order('created_at', { ascending: true });
-
-      if (error) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Impossible de charger la liste : ${esc(error.message)}</td></tr>`;
-        return;
-      }
-
-      if (!data || !data.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Aucun administrateur trouvé.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = data.map(adm => `
-        <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-xs">
-          <td class="py-3 px-4 font-bold text-slate-900">${esc(adm.full_name)}</td>
-          <td class="py-3 px-4 font-mono font-bold text-sky-700">${esc(adm.matricule)}</td>
-          <td class="py-3 px-4 text-slate-500">${adm.created_at ? new Date(adm.created_at).toLocaleDateString('fr-FR') : '—'}</td>
-          <td class="py-3 px-4 text-right space-x-1">
-            <button type="button" onclick="b5ResetMat('${esc(adm.matricule)}')" class="bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold px-2 py-1 rounded-lg text-[11px] shadow-xs">
-              🔄 Mot de passe
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    } catch (e) {
-      console.warn('loadAdminsList error:', e);
-    }
-  };
-
-  window.b5ResetMat = function (mat) {
-    if (typeof window.b4Reset === 'function') {
-      lastCred = { name: mat, matricule: mat };
-      window.b4Reset();
-    }
+    try { await callFn({ action: 'delete', role: 'student', matricule: s.matricule }); await reload('✅ ' + s.nom + ' supprimé(e).'); }
+    catch (err) { toast('⚠️ ' + human(err)); }
   };
 
   function fixBadge() {
-    const b = $('save-badge');
-    if (!b || !isAdmin()) return;
+    const b = $('save-badge'); if (!b || !isAdmin()) return;
     const txt = '☁️ Toutes vos modifications sont enregistrées en ligne';
-    if (b.textContent !== txt) {
-      b.textContent = txt;
-      b.className = 'fixed bottom-4 left-4 z-40 text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-lg print:hidden bg-emerald-600 text-white';
-    }
+    if (b.textContent !== txt) { b.textContent = txt; b.className = 'fixed bottom-4 left-4 z-40 text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-lg print:hidden bg-emerald-600 text-white'; }
   }
-
   const startBadge = () => { setInterval(fixBadge, 800); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startBadge); else startBadge();
 })();
