@@ -2,8 +2,17 @@
    SunuSchool — Configuration de l'établissement
    Modifiez ces valeurs pour personnaliser le logiciel
    pour votre école sans toucher au reste du code.
+
+   ⚠️  IMPORTANT pour le système multi-école :
+   Le champ "slug" identifie l'école de façon unique dans Supabase.
+   Il doit correspondre exactement au slug enregistré dans la table
+   "schools" de votre base de données Supabase.
    ============================================================= */
 window.SCHOOL = {
+  /* ── Identifiant unique de l'école (NE PAS CHANGER après la mise en prod) ── */
+  slug:        'al-amine-touba',             // ← Slug Supabase (table schools.slug)
+
+  /* ── Informations d'affichage ── */
   name:        'Groupe Scolaire Al-Amine',   // Nom complet de l'établissement
   shortName:   'Al-Amine',                   // Nom court (reçus, bulletins)
   city:        'Touba Mosquée',              // Ville / Quartier

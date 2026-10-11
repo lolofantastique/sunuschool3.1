@@ -25,9 +25,31 @@
     
     <div class="glass-card w-full max-w-sm rounded-[32px] p-8 relative text-slate-900 animate-in fade-in zoom-in duration-300">
 
-      <div class="text-center mt-2 mb-4">
+      <div class="text-center mt-2 mb-3">
         <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Connexion</h2>
-        <p class="text-xs text-slate-700 font-medium mt-1" id="login-school-name">SunuSchool</p>
+        <p class="text-xs text-slate-600 font-medium mt-1" id="login-school-name">SunuSchool</p>
+      </div>
+
+      <!-- SÉLECTEUR D'ÉTABLISSEMENT DYNAMIQUE (Multi-École SaaS) -->
+      <div class="mb-4">
+        <div class="bg-white/90 border border-slate-200/90 rounded-2xl p-2.5 shadow-sm text-left">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 overflow-hidden min-w-0">
+              <span class="text-base shrink-0" id="login-school-icon">🏫</span>
+              <div class="truncate">
+                <span class="block text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Établissement</span>
+                <span id="school-active-name" class="block text-xs font-bold text-slate-900 truncate">Chargement...</span>
+              </div>
+            </div>
+            <button type="button" id="btn-toggle-school-picker" onclick="toggleSchoolPicker()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg transition shrink-0">
+              Changer ▾
+            </button>
+          </div>
+          <!-- Liste déroulante des écoles depuis Supabase -->
+          <div id="school-picker-dropdown" class="hidden mt-2 pt-2 border-t border-slate-100 max-h-44 overflow-y-auto space-y-1">
+            <div class="text-[11px] text-slate-400 text-center py-2">Recherche des écoles...</div>
+          </div>
+        </div>
       </div>
 
       <div class="grid grid-cols-3 gap-1 bg-black/10 p-1 rounded-2xl mb-5 text-[11px] font-bold text-center">
@@ -193,12 +215,15 @@
             <p class="text-xs text-slate-500">Noms, numéros de compte uniques, contacts des tuteurs et statut financier.</p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-300 transition">
+          <div class="flex items-center flex-wrap gap-2">
+            <button onclick="printClassList()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-300 transition flex items-center gap-1.5 shadow-xs" title="Imprimer la liste officielle de la classe">
               🖨️ Imprimer la Liste
             </button>
-            <button onclick="exportRegistryClass()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow">
-              📥 Exporter Excel
+            <button onclick="openImportExcelModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1.5" title="Importer des élèves depuis un fichier Excel dans cette classe">
+              📥 Importer depuis Excel
+            </button>
+            <button onclick="exportRegistryClass()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1.5" title="Télécharger la liste de cette classe au format Excel">
+              📊 Exporter Excel
             </button>
           </div>
         </div>
@@ -958,6 +983,94 @@
           <button type="submit" class="flex-1 bg-sky-700 hover:bg-sky-800 text-white font-extrabold py-2.5 rounded-xl">✓ Enregistrer les corrections</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- FENÊTRE : IMPORTER DES ÉLÈVES DEPUIS EXCEL -->
+  <div id="excel-import-modal" class="no-print fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60" onclick="if(event.target===this)closeImportExcelModal()">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+      
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50/80">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl font-bold shadow-xs">
+            📊
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base">Importer des Élèves depuis Excel</h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Classe de destination : <span id="import-excel-class-badge" class="font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">Sélectionnée</span>
+            </p>
+          </div>
+        </div>
+        <button onclick="closeImportExcelModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold shrink-0 transition flex items-center justify-center">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="overflow-y-auto custom-scrollbar p-6 space-y-5 text-xs">
+        
+        <!-- Aide & Modèle -->
+        <div class="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p class="font-bold text-blue-900">Format accepté : fichier .xlsx, .xls ou .csv</p>
+            <p class="text-blue-700/80 text-[11px] mt-0.5">Colonnes recommandées : <b>Nom, Prénom, Sexe (M/F), Parent, Téléphone</b>.</p>
+          </div>
+          <button type="button" onclick="downloadExcelTemplate()" class="bg-white border border-blue-300 hover:bg-blue-100 text-blue-800 font-bold px-3 py-2 rounded-xl text-[11px] shrink-0 transition flex items-center gap-1.5 shadow-xs">
+            📄 Modèle Excel exemple
+          </button>
+        </div>
+
+        <!-- Zone de sélection du fichier -->
+        <div>
+          <label class="block font-bold text-slate-800 mb-2">Sélectionnez le fichier Excel :</label>
+          <div class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 hover:bg-blue-50/30 transition relative">
+            <input type="file" id="excel-import-file-input" accept=".xlsx, .xls, .csv" onchange="handleExcelImportFile(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+            <div class="space-y-1">
+              <div class="text-3xl">📥</div>
+              <p class="font-extrabold text-slate-800 text-sm" id="excel-import-filename">Cliquez ici pour choisir un fichier Excel</p>
+              <p class="text-[11px] text-slate-400">ou glissez-déposez le document ici</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone d'aperçu des élèves détectés -->
+        <div id="excel-preview-container" class="hidden space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+              <span>Aperçu des élèves détectés</span>
+              <span id="excel-preview-count" class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]">0 élève</span>
+            </h4>
+            <span class="text-[10px] text-slate-400">Vérifiez les données avant insertion</span>
+          </div>
+          <div class="border border-slate-200 rounded-2xl overflow-hidden max-h-52 overflow-y-auto custom-scrollbar">
+            <table class="w-full text-left text-[11px]">
+              <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0">
+                <tr>
+                  <th class="py-2 px-3 w-8 text-center">N°</th>
+                  <th class="py-2 px-3">Nom & Prénom</th>
+                  <th class="py-2 px-3 text-center">Sexe</th>
+                  <th class="py-2 px-3">Parent / Tuteur</th>
+                  <th class="py-2 px-3">Téléphone</th>
+                </tr>
+              </thead>
+              <tbody id="excel-preview-tbody" class="divide-y divide-slate-100">
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeImportExcelModal()" class="bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition">
+          Annuler
+        </button>
+        <button type="button" id="btn-confirm-import-excel" disabled onclick="confirmExcelImport()" class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold px-5 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow">
+          <span>🚀 Insérer les élèves dans la classe</span>
+        </button>
+      </div>
+
     </div>
   </div>
 

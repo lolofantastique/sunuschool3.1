@@ -1,0 +1,33 @@
+# ============================================================
+#  SunuSchool — .gitignore
+#  IMPORTANT : config.js contient vos clés Supabase.
+#  Ne le committez JAMAIS sur un dépôt public.
+# ============================================================
+
+# ─── Clés et secrets ────────────────────────────────────────
+config.js
+*.env
+.env
+.env.*
+secrets.js
+
+# ─── Node / npm (si jamais vous utilisez des outils) ────────
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ─── Éditeurs ───────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Builds ─────────────────────────────────────────────────
+dist/
+build/

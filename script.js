@@ -18,8 +18,11 @@
       { key: 'Collège',  label: 'Collège',          icon: '📘' },
       { key: 'Lycée',    label: 'Lycée',            icon: '🎓' }
     ];
-    let registryLevel = 'all', registryClassId = null;
-    let schedLevel = 'all', schedClassId = null;   // onglet « Emplois du Temps »
+    var registryLevel = 'all', registryClassId = null;
+    window.getRegistryClass = function() {
+      return (typeof classesMgtData !== 'undefined' ? classesMgtData : []).find(c => c.id === registryClassId) || (typeof classesMgtData !== 'undefined' ? classesMgtData[0] : null);
+    };
+    window.classStudents = classStudents;
 
     function classStudents(cls) {
       return allStudentsDB.filter(s => classKey(s.classe) === classKey(cls.name)).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
@@ -728,7 +731,7 @@
     // =========================================================
     // CLASSES MANAGEMENT DATA (déclaré AVANT init pour éviter l'erreur TDZ)
     // =========================================================
-    let classesMgtData = [
+    var classesMgtData = [
       { name: "6ème A",       level: "Collège", effectif: 45, pp: "M. Amadou Diallo", room: "Salle 01" },
       { name: "3ème A",       level: "Collège", effectif: 42, pp: "M. Amadou Diallo", room: "Salle 04" },
       { name: "3ème B",       level: "Collège", effectif: 38, pp: "Mme Fatou Ndiaye",  room: "Salle 05" },
@@ -736,15 +739,15 @@
       { name: "2nde C",       level: "Lycée",   effectif: 36, pp: "M. Oumar Seck",     room: "Salle 10" },
       { name: "Terminale S2", level: "Lycée",   effectif: 32, pp: "M. Oumar Seck",     room: "Salle 12" }
     ];
-    let nextMatriculeNum = 469;
-    let nextClassId = 1;
+    var nextMatriculeNum = 469;
+    var nextClassId = 1;
     classesMgtData.forEach(c => { c.id = nextClassId++; });
-    let classesTrash = [];            // [{ cls, deletedAt }]
-    let ctxClassId = null, ctxOpenedAt = 0;
+    var classesTrash = [];            // [{ cls, deletedAt }]
+    var ctxClassId = null, ctxOpenedAt = 0;
     const TRASH_DAYS = 30, DAY_MS = 86400000;
 
     // Base de données des élèves pour la recherche
-    const allStudentsDB = [
+    var allStudentsDB = [
       { nom: "DIOP Fatou",      matricule: "SN-2025-0412", sexe: "F", classe: "3ème A", parent: "M. Moussa Diop",       phone: "+221 77 123 45 67", fee: "30 000 FCFA", statut: "Payé",      statutClass: "bg-emerald-100 text-emerald-800" },
       { nom: "NDIAYE Babacar",  matricule: "SN-2025-0104", sexe: "M", classe: "3ème A", parent: "Mme Aïssatou Ndiaye",  phone: "+221 78 234 56 78", fee: "30 000 FCFA", statut: "Payé",      statutClass: "bg-emerald-100 text-emerald-800" },
       { nom: "FALL Modou",      matricule: "SN-2025-0899", sexe: "M", classe: "3ème A", parent: "M. Cheikh Fall",       phone: "+221 76 345 67 89", fee: "30 000 FCFA", statut: "En retard", statutClass: "bg-rose-100 text-rose-800"        },
@@ -1448,7 +1451,7 @@
   let payMonths = new Set(), payMethod = 'Wave', payPhone = '', lastReceipt = null;
 
   /* ---------- Droits par rôle ---------- */
-  const ALL_TABS = ['classes-registry','classes-management','teachers-registry','cash-payment','student','teacher','admin-hub','reportcard','absences','payments'];
+  const ALL_TABS = ['classes-registry','classes-management','teachers-registry','cash-payment','student','teacher','admin-hub','reportcard','absences','payments','school-settings'];
   const ALLOWED = { student: ['student','reportcard','payments'], teacher: ['teacher','teachers-registry'], admin: ALL_TABS };
   const HOME = { student: 'student', teacher: 'teacher', admin: 'classes-registry' };
   const allowedTabs = () => ALLOWED[currentRole] || [];
@@ -2446,7 +2449,13 @@
   window.sb = sb;
   const el = id => document.getElementById(id);
   const ERR = '⚠️ Identifiant ou mot de passe incorrect.';
-  const toEmail = id => String(id).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '@' + CFG.emailDomain;
+  const toEmail = id => {
+    const raw = String(id).trim().toLowerCase();
+    if (raw.includes('@')) return raw;
+    const cleanId = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = (window.SCHOOL && window.SCHOOL.slug) || 'default';
+    return cleanId + '@' + slug + '.sunuschool.app';
+  };
   const HOME_TAB = { student: 'student', teacher: 'teacher', admin: 'classes-registry' };
   let lastError = '', sessionRole = null;
   const IDS = window.sunuIds = { student: {}, subject: {}, class: {} };
@@ -2519,9 +2528,22 @@
 
   // Entre dans le site avec le profil lu dans Supabase. Retourne 'ok' | 'noprofile' | 'role' | 'data'.
   async function enterSession(user, expectedRole) {
-    const { data: prof, error } = await sb.from('profiles').select('role, matricule, full_name').eq('id', user.id).maybeSingle();
+    const { data: prof, error } = await sb.from('profiles').select('role, matricule, full_name, school_id').eq('id', user.id).maybeSingle();
     if (error || !prof) return 'noprofile';
     if (expectedRole && prof.role !== expectedRole) return 'role';
+
+    // Synchronisation automatique de l'école de l'utilisateur connecté depuis Supabase
+    if (prof.school_id && sb) {
+      try {
+        const { data: userSchool } = await sb.from('schools').select('*').eq('id', prof.school_id).maybeSingle();
+        if (userSchool && typeof window.applySchoolData === 'function') {
+          window.applySchoolData(userSchool, { saveSlug: true });
+        }
+      } catch (errSch) {
+        console.warn('Erreur chargement établissement :', errSch);
+      }
+    }
+
     try {
       purgeLocal();
       sessionRole = prof.role;
@@ -2562,8 +2584,13 @@
     try {
       if (!rows.length) return true;
       const uid = await userId(), now = new Date().toISOString();
-      const payload = rows.map(r => ({ student_id: IDS.student[r.mat], subject_id: IDS.subject[r.subject], semester: r.sem,
-        d1: r.d1, d2: r.d2, compo: r.compo, average: null, updated_by: uid, updated_at: now }));
+      const schoolId = (window.SCHOOL && window.SCHOOL.id) || undefined;
+      const payload = rows.map(r => {
+        const item = { student_id: IDS.student[r.mat], subject_id: IDS.subject[r.subject], semester: r.sem,
+          d1: r.d1, d2: r.d2, compo: r.compo, average: null, updated_by: uid, updated_at: now };
+        if (schoolId) item.school_id = schoolId;
+        return item;
+      });
       if (payload.some(p => !p.student_id || !p.subject_id)) throw new Error('élève ou matière inconnu');
       const { error } = await sb.from('grades').upsert(payload, { onConflict: 'student_id,subject_id,semester' });
       if (error) throw new Error(error.message);
@@ -2575,10 +2602,15 @@
   window.sunuPersistAttendance = async function ({ day, cls, rows, mats }) {
     try {
       const uid = await userId(), classId = IDS.class[cls];
+      const schoolId = (window.SCHOOL && window.SCHOOL.id) || undefined;
       if (!classId) throw new Error('classe inconnue');
       if (rows.length) {
-        const payload = rows.map(r => ({ student_id: IDS.student[r.mat], class_id: classId, day, status: r.s,
-          minutes_late: r.s === 'R' ? r.min : 0, reason: r.motif || null, recorded_by: uid }));
+        const payload = rows.map(r => {
+          const item = { student_id: IDS.student[r.mat], class_id: classId, day, status: r.s,
+            minutes_late: r.s === 'R' ? r.min : 0, reason: r.motif || null, recorded_by: uid };
+          if (schoolId) item.school_id = schoolId;
+          return item;
+        });
         if (payload.some(p => !p.student_id)) throw new Error('élève inconnu');
         const up = await sb.from('attendance').upsert(payload, { onConflict: 'student_id,day' });
         if (up.error) throw new Error(up.error.message);
@@ -2669,7 +2701,10 @@
     const rec = 'REC-2026-' + String(Math.max(0, ...nums) + 1).padStart(4, '0'), date = today();
     try {
       const uid = await userId();
-      const ins = await sb.from('payments').insert({ receipt_no: rec, student_id: sid, month, amount, method: mode, reference: payer.slice(0, 80), paid_on: date, recorded_by: uid });
+      const schoolId = (window.SCHOOL && window.SCHOOL.id) || undefined;
+      const payload = { receipt_no: rec, student_id: sid, month, amount, method: mode, reference: payer.slice(0, 80), paid_on: date, recorded_by: uid };
+      if (schoolId) payload.school_id = schoolId;
+      const ins = await sb.from('payments').insert(payload);
       if (ins.error) throw new Error(ins.error.message);
     } catch (err) { console.error(err); showToast('⚠️ Paiement non enregistré : ' + (err.message || err)); return; }
     api.add([{ id: 'p' + Date.now(), rec, mat, month, amount, method: mode, ref: payer, date, by: 'Caisse' }]);
