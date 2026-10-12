@@ -30,28 +30,6 @@
         <p class="text-xs text-slate-600 font-medium mt-1" id="login-school-name">SunuSchool</p>
       </div>
 
-      <!-- SÉLECTEUR D'ÉTABLISSEMENT DYNAMIQUE (Multi-École SaaS) -->
-      <div class="mb-4">
-        <div class="bg-white/90 border border-slate-200/90 rounded-2xl p-2.5 shadow-sm text-left">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 overflow-hidden min-w-0">
-              <span class="text-base shrink-0" id="login-school-icon">🏫</span>
-              <div class="truncate">
-                <span class="block text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Établissement</span>
-                <span id="school-active-name" class="block text-xs font-bold text-slate-900 truncate">Chargement...</span>
-              </div>
-            </div>
-            <button type="button" id="btn-toggle-school-picker" onclick="toggleSchoolPicker()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg transition shrink-0">
-              Changer ▾
-            </button>
-          </div>
-          <!-- Liste déroulante des écoles depuis Supabase -->
-          <div id="school-picker-dropdown" class="hidden mt-2 pt-2 border-t border-slate-100 max-h-44 overflow-y-auto space-y-1">
-            <div class="text-[11px] text-slate-400 text-center py-2">Recherche des écoles...</div>
-          </div>
-        </div>
-      </div>
-
       <div class="grid grid-cols-3 gap-1 bg-black/10 p-1 rounded-2xl mb-5 text-[11px] font-bold text-center">
         <button onclick="setLoginRole('student')" id="tab-login-student" class="py-2 rounded-xl bg-slate-900 text-white shadow-sm transition">
           🎓 Élève
