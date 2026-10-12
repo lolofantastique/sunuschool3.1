@@ -202,7 +202,7 @@
     if (phone && digits(phone).length < 9) return toast('⚠️ Numéro de téléphone invalide.');
     const btn = e && e.submitter; if (btn) btn.disabled = true;
     try {
-      const r = await callFn({ role: 'student', full_name: nom + ' ' + prenom, sex: $('stu-sexe').value, class_id: cls.id, parent_name: parent, phone, monthly_fee: parseInt($('stu-fee').value, 10) || 0 });
+      const r = await callFn({ role: 'student', matricule: $('matricule-preview').textContent.trim(), full_name: nom + ' ' + prenom, sex: $('stu-sexe').value, class_id: cls.id, parent_name: parent, phone, monthly_fee: parseInt($('stu-fee').value, 10) || 0 });
       ['stu-nom', 'stu-prenom', 'stu-parent', 'stu-phone'].forEach(i => { if ($(i)) $(i).value = ''; });
       await reload('🎓 ' + nom + ' ' + prenom + ' inscrit(e) en ' + cls.name + '. Matricule ' + r.matricule);
       showCred({ title: 'Compte élève créé', note: 'Remettez ces identifiants à l’élève ou au parent. Le mot de passe ne sera plus affiché.', name: r.full_name, matricule: r.matricule, password: r.password });
