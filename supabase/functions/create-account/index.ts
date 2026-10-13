@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
   const caller = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
   const { data: u, error: ue } = await caller.auth.getUser();
   if (ue || !u?.user) return json({ error: "Non connecté." }, 401);
-  const { data: prof } = await caller.from("profiles").select("role, school_id").eq("id", u.user.id).maybeSingle();
+  const { data: prof } = await caller.from("profiles").select("role, school_id, is_director").eq("id", u.user.id).maybeSingle();
   if (prof?.role !== "admin") return json({ error: "Réservé à l'administration." }, 403);
   const schoolId = prof.school_id;
   if (!schoolId) return json({ error: "Votre compte n'est rattaché à aucune école." }, 403);
@@ -66,6 +66,9 @@ Deno.serve(async (req: Request) => {
 
   const role = body.role === "teacher" ? "teacher" : body.role === "student" ? "student" : body.role === "admin" ? "admin" : null;
   if (!role) return json({ error: "Rôle inconnu." }, 400);
+
+  // Seul le directeur (is_director) peut créer d'autres administrateurs.
+  if (role === "admin" && prof.is_director !== true) return json({ error: "Seul le directeur peut créer un administrateur." }, 403);
 
   const fullName = clean(body.full_name);
   if (fullName.length < 3) return json({ error: "Nom complet obligatoire." }, 400);
