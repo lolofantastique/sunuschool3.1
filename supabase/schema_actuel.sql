@@ -1,5 +1,6 @@
 -- SunuSchool : schema REEL de la base Supabase (bmhdxzkuhueflnricgpx)
--- Reconstitue par lecture de la base le 13/10/2026 (apres les corrections du jour).
+-- Reconstitue par lecture de la base le 13/10/2026, mis a jour le 14/10/2026
+-- (corbeille enseignants, numeros multiples, logos, purge_trash).
 -- Sert de reference. A rejouer sur un projet NEUF uniquement.
 -- Les anciennes migrations du dossier migrations/ sont un historique et ne refletent plus l'etat actuel.
 
@@ -15,6 +16,7 @@ create table public.schools (
   slug text,
   short_name text,
   phone text,
+  phones text[] not null default '{}'::text[],
   email text,
   ia text,
   ief text,
@@ -42,7 +44,8 @@ create table public.teachers (
   subject text not null,
   phone text,
   coeff numeric(3,1) not null default 1,
-  school_id bigint not null default my_school_id()
+  school_id bigint not null default my_school_id(),
+  deleted_at timestamp with time zone
 );
 
 create table public.classes (
@@ -405,6 +408,16 @@ $function$;
 
 CREATE TRIGGER teachers_sync_subject AFTER INSERT OR UPDATE OF subject, coeff ON public.teachers FOR EACH ROW EXECUTE FUNCTION sync_teacher_subject();
 
+-- Corbeille : suppression definitive apres 30 jours (non appelable depuis le site, non planifiee pour l'instant)
+CREATE OR REPLACE FUNCTION public.purge_trash() RETURNS void
+ LANGUAGE sql SECURITY DEFINER SET search_path TO 'public' AS $function$
+  delete from public.classes where deleted_at is not null and deleted_at < now() - interval '30 days'
+    and not exists (select 1 from public.students s where s.class_id = classes.id);
+  delete from public.teachers where deleted_at is not null and deleted_at < now() - interval '30 days'
+    and not exists (select 1 from public.teacher_slots t where t.teacher_id = teachers.id);
+$function$;
+revoke all on function public.purge_trash() from public, anon, authenticated;
+
 -- ---------- 6. VUE ----------
 
 create view public.students_with_class with (security_invoker = on) as
@@ -470,8 +483,25 @@ create policy payments_select on public.payments as permissive for select to pub
     select s.id from public.students s where s.matricule = my_matricule() and s.school_id = my_school_id())));
 create policy payments_admin on public.payments as permissive for all to public using (school_id = my_school_id() and my_role() = 'admin'::text);
 
--- ---------- 9. A SAVOIR ----------
+-- ---------- 9. STOCKAGE DES LOGOS (Supabase Storage) ----------
+-- Espace public en lecture ; seul le directeur peut envoyer, remplacer ou supprimer le logo,
+-- dans le dossier portant l'identifiant de son ecole (ex. 1/logo.png).
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('school-logos','school-logos', true, 1048576, array['image/png','image/jpeg','image/webp'])
+on conflict (id) do nothing;
+
+create policy school_logos_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'school-logos' and (storage.foldername(name))[1] = public.my_school_id()::text and public.my_is_director());
+create policy school_logos_update on storage.objects for update to authenticated
+  using (bucket_id = 'school-logos' and (storage.foldername(name))[1] = public.my_school_id()::text and public.my_is_director())
+  with check (bucket_id = 'school-logos' and (storage.foldername(name))[1] = public.my_school_id()::text and public.my_is_director());
+create policy school_logos_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'school-logos' and (storage.foldername(name))[1] = public.my_school_id()::text and public.my_is_director());
+
+-- ---------- 10. A SAVOIR ----------
 -- Les roles anon et authenticated ont tous les droits de table par defaut (reglage standard de Supabase) ;
 -- c'est RLS qui limite l'acces. Une amelioration serait de retirer les droits inutiles a anon
 -- (revoke ... on public.<table> from anon) et de ne garder que select sur public.schools.
--- Fonction Supabase create-account : voir supabase/functions/create-account/index.ts
+-- Fonction Supabase create-account (version 6) : voir supabase/functions/create-account/index.ts
+-- Le site n'utilise pas encore teachers.deleted_at ni schools.phones ni l'espace school-logos.
