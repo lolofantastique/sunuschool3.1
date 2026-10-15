@@ -3,7 +3,7 @@
    1. Corbeille 30 jours (classes et enseignants) : mise en corbeille, restauration, purge
    2. Restriction création administrateur au directeur (is_director)
    3. Relance WhatsApp pour paiements en retard / impayés
-   4. Format ticket de caisse 80mm pour impression des reçus
+   4. Format ticket de caisse 80mm pour impression des reçus (ET isolation de la zone imprimable #receipt-preview-card)
    5. Fiche imprimable lors d'une réinitialisation ou création de mot de passe
    6. Contrôle et affectation des créneaux enseignants (salle, classe, horaire) sans collision
    7. Support multi-numéros pour l'établissement
@@ -16,6 +16,87 @@
   const sbc = () => window.sb;
   const toast = m => { try { if (typeof showToast === 'function') showToast(m); else alert(m); } catch (_) { alert(m); } };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ============================================================
+     IMPRESSION PROPRE DU REÇU SEUL (DANS UNE FENÊTRE DÉDIÉE)
+     Garantit que RIEN d'autre de la page ne s'imprime
+     ============================================================ */
+  window.printReceiptOnly = function () {
+    const card = $('receipt-preview-card');
+    if (!card) {
+      window.print();
+      return;
+    }
+
+    const printWin = window.open('', '_blank', 'width=380,height=650');
+    if (!printWin) {
+      toast('⚠️ Fenêtre pop-up bloquée. Autorisez les pop-ups pour imprimer le reçu.');
+      return;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Reçu de Paiement</title>
+  <style>
+    @page {
+      size: 80mm auto;
+      margin: 3mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 6px;
+      color: #0f172a;
+      background: #fff;
+      font-size: 11px;
+      width: 74mm;
+      box-sizing: border-box;
+    }
+    #receipt-preview-card {
+      border: 1px dashed #d97706 !important;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fffbeb;
+      box-sizing: border-box;
+    }
+    /* Masquer les éléments interactifs ou inutiles sur le ticket */
+    button, .no-print {
+      display: none !important;
+    }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  ${card.outerHTML}
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 300);
+    };
+  <\/script>
+</body>
+</html>`;
+
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+  };
+
+  // Remplacement du bouton standard "Imprimer le Reçu"
+  function bindReceiptPrintButton() {
+    const btns = document.querySelectorAll('button');
+    btns.forEach(b => {
+      if (b.textContent && b.textContent.includes('Imprimer le Reçu')) {
+        b.onclick = function (e) {
+          if (e && e.preventDefault) e.preventDefault();
+          window.printReceiptOnly();
+        };
+      }
+    });
+  }
 
   /* ============================================================
      1. CORBEILLE 30 JOURS (CLASSES & ENSEIGNANTS)
@@ -70,57 +151,6 @@
     const message = `Bonjour,\nNous vous informons qu'un paiement de scolarité (${feeAmount} FCFA) pour ${studentName} au titre du mois de ${month} est en attente auprès de ${schoolName}.\nMerci de régulariser la situation dès que possible. Cordialement.`;
     const url = `https://wa.me/${cleanPhone.startsWith('221') ? cleanPhone : '221' + cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
-  };
-
-  /* ============================================================
-     4. IMPRESSION REÇU FORMAT TICKET 80MM
-     ============================================================ */
-  window.printReceipt80mm = function (receipt) {
-    if (!receipt) return toast('⚠️ Données de reçu invalides.');
-    const sc = window.SCHOOL || {};
-    const w = window.open('', '_blank', 'width=340,height=600');
-    if (!w) return toast('⚠️ Fenêtre pop-up bloquée.');
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Reçu #${esc(receipt.no || 'REC')}</title>
-  <style>
-    @page { size: 80mm auto; margin: 3mm; }
-    body { font-family: 'Courier New', monospace; width: 74mm; font-size: 11px; color: #000; margin: 0 auto; padding: 2mm; }
-    .center { text-align: center; }
-    .bold { font-weight: bold; }
-    .title { font-size: 13px; margin-bottom: 2px; }
-    .line { border-top: 1px dashed #000; margin: 6px 0; }
-    .row { display: flex; justify-content: space-between; margin: 2px 0; }
-    .total { font-size: 14px; margin-top: 4px; }
-  </style>
-</head>
-<body>
-  <div class="center bold title">${esc(sc.name || 'SUNUSCHOOL')}</div>
-  <div class="center">${esc(sc.city || '')} - Tél: ${esc(sc.phone || '')}</div>
-  <div class="line"></div>
-  <div class="row"><span>REÇU N°:</span><span class="bold">${esc(receipt.no || '—')}</span></div>
-  <div class="row"><span>Date:</span><span>${new Date().toLocaleDateString('fr-FR')}</span></div>
-  <div class="row"><span>Élève:</span><span class="bold">${esc(receipt.studentName || '—')}</span></div>
-  <div class="row"><span>Classe:</span><span>${esc(receipt.className || '—')}</span></div>
-  <div class="row"><span>Matricule:</span><span>${esc(receipt.matricule || '—')}</span></div>
-  <div class="line"></div>
-  <div class="row"><span>Mois:</span><span class="bold">${esc(receipt.month || '—')}</span></div>
-  <div class="row"><span>Mode:</span><span>${esc(receipt.method || 'Espèces')}</span></div>
-  <div class="line"></div>
-  <div class="row total bold"><span>TOTAL PAYÉ:</span><span>${Number(receipt.amount || 0).toLocaleString('fr-FR')} FCFA</span></div>
-  <div class="line"></div>
-  <div class="center" style="margin-top:8px;font-size:10px;">Merci pour votre confiance.<br>Conservez ce ticket.</div>
-  <script>
-    window.onload = function() { setTimeout(function(){ window.print(); }, 200); };
-  <\/script>
-</body>
-</html>`;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
   };
 
   /* ============================================================
@@ -241,8 +271,9 @@
     if (logoEl) logoEl.innerHTML = `<img src="${esc(logoUrl)}" alt="Logo" class="w-full h-full object-cover">`;
   };
 
-  // Initialisation automatique des sécurités sur l'interface
+  // Initialisation automatique au chargement
   document.addEventListener('DOMContentLoaded', () => {
+    setInterval(bindReceiptPrintButton, 1000);
     setTimeout(() => {
       if (typeof window.applyAdminFormGuard === 'function') window.applyAdminFormGuard();
     }, 1000);
