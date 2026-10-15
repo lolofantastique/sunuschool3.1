@@ -42,3 +42,55 @@ body.locked > header,
 body.locked > main,
 body.locked #save-badge,
 body.locked #admin-tools { display: none !important; }
+
+/* Organisation de l'interface. Les classes hidden restent gerees par Tailwind et le controle des roles. */
+@media screen {
+  body > header > div > div:first-child {
+    height: auto;
+    min-height: 4rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  body > header > div > div:first-child > div:first-child {
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+  body > header > div > div:first-child > div:last-child {
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  #nav-logo { flex-shrink: 0; }
+  #nav-school-name { overflow-wrap: anywhere; }
+  #desktop-tabs {
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding: 0.5rem;
+    border-radius: 1rem;
+  }
+  #desktop-tabs .tab-btn,
+  #mobile-tabs button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 2.5rem;
+  }
+  #desktop-tabs #btn-school-settings { order: 100; }
+  #mobile-tabs {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    overflow-x: visible;
+  }
+  #mobile-tabs button { border-radius: 0.75rem; }
+  body > main { min-width: 0; }
+  #login-modal { overflow-y: auto; }
+  #login-modal > .glass-card {
+    background: rgba(255, 255, 255, 0.96);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+}
