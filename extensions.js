@@ -7,7 +7,7 @@
    5. Fiche imprimable lors d'une réinitialisation ou création de mot de passe
    6. Contrôle et affectation des créneaux enseignants (salle, classe, horaire) sans collision
    7. Support multi-numéros pour l'établissement
-   8. Gestion et affichage du logo d'école personnalisé
+   8. Gestion et affichage du logo d'école personnalisé (y compris intégration dans le reçu de caisse)
 */
 (() => {
   'use strict';
@@ -18,10 +18,37 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /* ============================================================
+     INJECTION DYNAMIQUE DU LOGO DE L'ÉCOLE SUR LE REÇU DE CAISSE
+     ============================================================ */
+  function injectLogoIntoReceiptCard() {
+    const card = $('receipt-preview-card');
+    if (!card) return;
+    const sc = window.SCHOOL || {};
+    const logoUrl = sc.logo || sc.logo_url;
+    if (!logoUrl) return;
+
+    // Vérifier si le logo est déjà présent dans la carte
+    let logoImg = card.querySelector('#rcpt-school-logo');
+    if (!logoImg) {
+      const headerBox = card.firstElementChild;
+      if (headerBox) {
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'w-12 h-12 rounded-xl overflow-hidden mr-3 shrink-0 bg-white border border-amber-200 p-0.5 flex items-center justify-center';
+        logoDiv.innerHTML = `<img id="rcpt-school-logo" src="${esc(logoUrl)}" alt="Logo" class="w-full h-full object-contain">`;
+        headerBox.classList.add('flex', 'items-center');
+        headerBox.insertBefore(logoDiv, headerBox.firstChild);
+      }
+    } else if (logoImg.src !== logoUrl) {
+      logoImg.src = logoUrl;
+    }
+  }
+
+  /* ============================================================
      IMPRESSION PROPRE DU REÇU SEUL (DANS UNE FENÊTRE DÉDIÉE)
-     Garantit que RIEN d'autre de la page ne s'imprime
+     Avec intégration propre et lisible du logo d'école
      ============================================================ */
   window.printReceiptOnly = function () {
+    injectLogoIntoReceiptCard();
     const card = $('receipt-preview-card');
     if (!card) {
       window.print();
@@ -61,7 +88,11 @@
       background: #fffbeb;
       box-sizing: border-box;
     }
-    /* Masquer les éléments interactifs ou inutiles sur le ticket */
+    #rcpt-school-logo {
+      max-width: 48px;
+      max-height: 48px;
+      object-fit: contain;
+    }
     button, .no-print {
       display: none !important;
     }
@@ -74,7 +105,7 @@
     window.onload = function() {
       setTimeout(function() {
         window.print();
-      }, 300);
+      }, 350);
     };
   <\/script>
 </body>
@@ -87,6 +118,7 @@
 
   // Remplacement du bouton standard "Imprimer le Reçu"
   function bindReceiptPrintButton() {
+    injectLogoIntoReceiptCard();
     const btns = document.querySelectorAll('button');
     btns.forEach(b => {
       if (b.textContent && b.textContent.includes('Imprimer le Reçu')) {
@@ -269,12 +301,14 @@
     toast('✅ Logo de l’école mis à jour avec succès.');
     const logoEl = $('nav-logo');
     if (logoEl) logoEl.innerHTML = `<img src="${esc(logoUrl)}" alt="Logo" class="w-full h-full object-cover">`;
+    injectLogoIntoReceiptCard();
   };
 
   // Initialisation automatique au chargement
   document.addEventListener('DOMContentLoaded', () => {
     setInterval(bindReceiptPrintButton, 1000);
     setTimeout(() => {
+      injectLogoIntoReceiptCard();
       if (typeof window.applyAdminFormGuard === 'function') window.applyAdminFormGuard();
     }, 1000);
   });
