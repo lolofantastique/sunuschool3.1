@@ -1,4 +1,4 @@
-/* SunuSchool : complements a Tailwind. Ne pas redefinir .hidden avec !important : cela bloque md:flex. */
+/* SunuSchool v11 - Feuille de style (complète Tailwind CSS) */
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
@@ -11,78 +11,34 @@ body {
   border-radius: 9999px;
 }
 .glass-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 .glass-input {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 .glass-input:focus {
-  background: #fff;
-  border-color: #059669;
-  outline: 2px solid #a7f3d0;
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.8);
 }
 .hero-bg {
-  background-image: linear-gradient(135deg, #102a43, #14532d);
+  background-image: linear-gradient(135deg, rgba(16, 42, 66, 0.8), rgba(20, 83, 45, 0.7)), url('https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1600&auto=format&fit=crop');
   background-size: cover;
   background-position: center;
 }
-#login-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  overflow-y: auto;
-  padding: 1rem;
+@media print {
+  header, #toast, .no-print, #login-modal { display: none !important; }
+  body { background: #fff !important; }
 }
-#login-modal:not(.hidden) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#login-modal.hidden {
-  display: none;
-}
-#login-modal > .glass-card {
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
-  flex-shrink: 0;
-}
-/* Verrouillage visuel uniquement : l'authentification et RLS restent indispensables. */
+
+/* Site verrouillé tant qu'aucune connexion n'a réussi */
 body.locked > header,
 body.locked > main,
 body.locked #save-badge,
-body.locked #admin-tools {
-  display: none !important;
-}
-@media screen and (min-width: 768px) {
-  body > header > div > div:first-child {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: 4rem;
-    gap: 0.75rem;
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-  }
-  #desktop-tabs {
-    order: 3;
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-  }
-  #desktop-tabs .tab-btn {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-}
-@media print {
-  header, #toast, .no-print, #login-modal, #save-badge, #admin-tools {
-    display: none !important;
-  }
-  body {
-    background: #fff !important;
-  }
-}
+body.locked #admin-tools { display: none !important; }

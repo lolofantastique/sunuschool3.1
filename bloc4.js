@@ -3,15 +3,6 @@
    Tous les administrateurs authentifiés de l'école ont les pleins pouvoirs de gestion. */
 (() => {
   'use strict';
-
-  /* Charge automatiquement extensions.js si pas déjà présent */
-  if (!document.querySelector('script[src*="extensions.js"]')) {
-    const extScript = document.createElement('script');
-    extScript.src = 'extensions.js';
-    extScript.defer = true;
-    document.head.appendChild(extScript);
-  }
-
   const $ = id => document.getElementById(id);
   const sbc = () => window.sb;
   const IDS = () => window.sunuIds || { student: {}, subject: {}, class: {} };
@@ -118,10 +109,6 @@
 
   window.b4Print = () => {
     if (!lastCred) return;
-    if (typeof window.printPasswordSlip === 'function') {
-      window.printPasswordSlip(lastCred);
-      return;
-    }
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write('<html><head><title>Identifiants SunuSchool</title></head><body style="font-family:Arial;padding:30px"><h2>SunuSchool — Identifiants de connexion</h2><p><b>Nom :</b> ' + esc(lastCred.name) + '</p><p><b>Matricule :</b> ' + esc(lastCred.matricule) + '</p><p><b>Mot de passe :</b> ' + esc(lastCred.password) + '</p><p style="color:#666;font-size:12px;margin-top:20px">Conservez ces informations de manière confidentielle. Le mot de passe ne sera plus affiché.</p></body></html>');
@@ -315,10 +302,6 @@
 
   window.deleteTeacher = async function (btn, id) {
     if (!guard()) return;
-    if (typeof window.moveTeacherToTrash === 'function') {
-      if (!confirm('Déplacer cet enseignant vers la corbeille (conservé pendant 30 jours) ?')) return;
-      return window.moveTeacherToTrash(id);
-    }
     if (!btn.dataset.armed) {
       btn.dataset.armed = '1'; btn.textContent = 'Confirmer ?'; btn.classList.add('bg-rose-600', 'text-white');
       setTimeout(() => { if (!btn.isConnected) return; delete btn.dataset.armed; btn.textContent = 'Supprimer'; btn.classList.remove('bg-rose-600', 'text-white'); }, 3000);
@@ -348,18 +331,7 @@
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
     const t = teachersData.find(x => x.id === selectedTeacherId); if (!t) return;
-    const newDay = $('sl-day').value;
-    const newStart = $('sl-start').value;
-    const newEnd = $('sl-end').value;
-    const newCls = $('sl-class').value.trim();
-    const newRoom = $('sl-room').value.trim();
-
-    if (typeof window.validateTeacherSlot === 'function') {
-      const chk = window.validateTeacherSlot(t.slots || [], { day: newDay, start: newStart, end: newEnd, classe: newCls });
-      if (!chk.valid) return toast('⚠️ ' + chk.message);
-    }
-
-    const r = addSlot(t, newDay, newStart, newEnd, newCls, newRoom);
+    const r = addSlot(t, $('sl-day').value, $('sl-start').value, $('sl-end').value, $('sl-class').value.trim(), $('sl-room').value.trim());
     if (!r.ok) return toast('⚠️ ' + r.msg);
     const classId = IDS().class[r.cls.name] || r.cls.id;
     const payload = { teacher_id: t.id, class_id: classId, day: r.slot.day, start_time: r.slot.start, end_time: r.slot.end, room: r.slot.room || null };
@@ -410,7 +382,7 @@
         phone,
         monthly_fee: parseInt($('stu-fee').value, 10) || 0
       };
-      if (/^SN-\\d{4}-\\d+$/i.test(previewMat)) reqBody.matricule = previewMat;
+      if (/^SN-\d{4}-\d+$/i.test(previewMat)) reqBody.matricule = previewMat;
       const r = await callFn(reqBody);
 
       // Garantie côté client : upsert direct dans la table 'students'
@@ -480,11 +452,6 @@
     if (!guard()) return;
     const s = allStudentsDB[idx];
     if (!s) return;
-    const sid = IDS().student[s.matricule];
-    if (sid && typeof window.moveStudentToTrash === 'function') {
-      if (!confirm('Déplacer ' + s.nom + ' (' + s.matricule + ') vers la corbeille (conservé pendant 30 jours) ?')) return;
-      return window.moveStudentToTrash(sid);
-    }
     if (!confirm('Supprimer définitivement ' + s.nom + ' (' + s.matricule + ') et son compte ? Impossible si des notes, absences ou paiements sont enregistrés.')) return;
 
     try {
@@ -565,7 +532,7 @@
           <td class="py-3 px-4 font-mono font-bold text-sky-700">${esc(adm.matricule)}</td>
           <td class="py-3 px-4 text-slate-500">${adm.created_at ? new Date(adm.created_at).toLocaleDateString('fr-FR') : '—'}</td>
           <td class="py-3 px-4 text-right space-x-1">
-            <button type="button" onclick="b5ResetMat('${esc(adm.matricule)}')\" class="bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold px-2 py-1 rounded-lg text-[11px] shadow-xs">
+            <button type="button" onclick="b5ResetMat('${esc(adm.matricule)}')" class="bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold px-2 py-1 rounded-lg text-[11px] shadow-xs">
               🔄 Mot de passe
             </button>
           </td>
