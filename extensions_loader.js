@@ -43,7 +43,7 @@
   }
   function reflect(data) {
     if (String(school().id) !== String(data.id)) return;
-    Object.assign(window.SCHOOL, { phones: numbers(data.phones || data.phone || ''), phone: data.phone || '', logo: data.logo || data.logo_url || '' });
+    Object.assign(window.SCHOOL, { phones: numbers(Array.isArray(data.phones) && data.phones.some(p => String(p ?? '').trim()) ? data.phones : data.phone || ''), phone: data.phone || '', logo: data.logo || data.logo_url || '' });
     const nav = $('nav-logo');
     if (nav && school().logo) {
       const img = document.createElement('img'); img.src = school().logo; img.alt = 'Logo de l’etablissement';
