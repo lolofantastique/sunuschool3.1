@@ -26,12 +26,24 @@ button, input, select {
   display: none !important;
 }
 
-/* ============================================================
-   RÈGLES D'IMPRESSION STRICTEMENT LIMITÉES AU MODE PRINT
-   Ne perturbe AUCUN élément de l'affichage écran
-   ============================================================ */
+/* Modale de connexion plein écran au-dessus de tout */
+#login-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+#login-modal.hidden {
+  display: none !important;
+}
+
+/* RÈGLES D'IMPRESSION STRICTEMENT LIMITÉES AU MODE PRINT */
 @media print {
-  /* Si l'impression concerne le reçu thermique */
   body.printing-receipt * {
     visibility: hidden !important;
   }
@@ -57,7 +69,6 @@ button, input, select {
     display: none !important;
   }
 
-  /* Impression standard pour les autres documents (bulletins, listes de classe) */
   .no-print {
     display: none !important;
   }
