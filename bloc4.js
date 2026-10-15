@@ -4,7 +4,7 @@
 (() => {
   'use strict';
 
-  /* Charge automatiquement extensions.js */
+  /* Charge automatiquement extensions.js si pas déjà présent */
   if (!document.querySelector('script[src*="extensions.js"]')) {
     const extScript = document.createElement('script');
     extScript.src = 'extensions.js';
@@ -46,7 +46,7 @@
     });
     if (error) {
       let detail = error.message;
-      try { const j = await error.context.json(); if (j && j.error) detail = j.error; } catch (_) {}\
+      try { const j = await error.context.json(); if (j && j.error) detail = j.error; } catch (_) {}
       throw new Error(detail);
     }
     if (data && data.error) throw new Error(data.error);
@@ -80,11 +80,11 @@
     m = document.createElement('div');
     m.id = 'b4-cred';
     m.className = 'hidden fixed inset-0 z-[120] bg-slate-950/60 p-4 items-center justify-center';
-    m.innerHTML = '<div class=\"bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 text-center space-y-4\"><div class=\"text-4xl\">🔐</div>' +
-      '<h2 id=\"b4-title\" class=\"font-black text-slate-900 text-lg\"></h2><p id=\"b4-note\" class=\"text-sm text-slate-500\"></p>' +
-      '<div id=\"b4-box\" class=\"bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 text-sm\"></div>' +
-      '<div id=\"b4-actions\" class=\"flex gap-2\"></div>' +
-      '<button type=\"button\" onclick=\"b4CloseCred()\" class=\"w-full text-slate-500 hover:text-slate-900 font-bold text-xs py-2\">Fermer</button></div>';
+    m.innerHTML = '<div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 text-center space-y-4"><div class="text-4xl">🔐</div>' +
+      '<h2 id="b4-title" class="font-black text-slate-900 text-lg"></h2><p id="b4-note" class="text-sm text-slate-500"></p>' +
+      '<div id="b4-box" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 text-sm"></div>' +
+      '<div id="b4-actions" class="flex gap-2"></div>' +
+      '<button type="button" onclick="b4CloseCred()" class="w-full text-slate-500 hover:text-slate-900 font-bold text-xs py-2">Fermer</button></div>';
     document.body.appendChild(m);
     return m;
   }
@@ -97,13 +97,13 @@
     const m = credModal();
     $('b4-title').textContent = c.title;
     $('b4-note').textContent = c.note;
-    $('b4-box').innerHTML = '<p><span class=\"text-slate-500\">Nom :</span> <b>' + esc(c.name) + '</b></p>' +
-      '<p><span class=\"text-slate-500\">Matricule :</span> <b class=\"font-mono text-sky-700\">' + esc(c.matricule) + '</b></p>' +
-      (c.password ? '<p><span class=\"text-slate-500\">Mot de passe :</span> <b class=\"font-mono text-emerald-700 text-lg tracking-widest\">' + esc(c.password) + '</b></p>' : '');
+    $('b4-box').innerHTML = '<p><span class="text-slate-500">Nom :</span> <b>' + esc(c.name) + '</b></p>' +
+      '<p><span class="text-slate-500">Matricule :</span> <b class="font-mono text-sky-700">' + esc(c.matricule) + '</b></p>' +
+      (c.password ? '<p><span class="text-slate-500">Mot de passe :</span> <b class="font-mono text-emerald-700 text-lg tracking-widest">' + esc(c.password) + '</b></p>' : '');
     $('b4-actions').innerHTML = c.password
-      ? '<button type=\"button\" onclick=\"b4Copy()\" class=\"flex-1 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs py-3 rounded-xl\">📋 Copier</button>' +
-        '<button type=\"button\" onclick=\"b4Print()\" class=\"flex-1 bg-slate-900 hover:bg-black text-white font-bold text-xs py-3 rounded-xl\">🖨️ Imprimer</button>'
-      : '<button type=\"button\" onclick=\"b4Reset()\" class=\"flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs py-3 rounded-xl\">🔄 Générer un nouveau mot de passe</button>';
+      ? '<button type="button" onclick="b4Copy()" class="flex-1 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs py-3 rounded-xl">📋 Copier</button>' +
+        '<button type="button" onclick="b4Print()" class="flex-1 bg-slate-900 hover:bg-black text-white font-bold text-xs py-3 rounded-xl">🖨️ Imprimer</button>'
+      : '<button type="button" onclick="b4Reset()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs py-3 rounded-xl">🔄 Générer un nouveau mot de passe</button>';
     m.classList.remove('hidden');
     m.classList.add('flex');
   }
@@ -124,7 +124,7 @@
     }
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write('<html><head><title>Identifiants SunuSchool</title></head><body style=\"font-family:Arial;padding:30px\"><h2>SunuSchool — Identifiants de connexion</h2><p><b>Nom :</b> ' + esc(lastCred.name) + '</p><p><b>Matricule :</b> ' + esc(lastCred.matricule) + '</p><p><b>Mot de passe :</b> ' + esc(lastCred.password) + '</p><p style=\"color:#666;font-size:12px;margin-top:20px\">Conservez ces informations de manière confidentielle. Le mot de passe ne sera plus affiché.</p></body></html>');
+    w.document.write('<html><head><title>Identifiants SunuSchool</title></head><body style="font-family:Arial;padding:30px"><h2>SunuSchool — Identifiants de connexion</h2><p><b>Nom :</b> ' + esc(lastCred.name) + '</p><p><b>Matricule :</b> ' + esc(lastCred.matricule) + '</p><p><b>Mot de passe :</b> ' + esc(lastCred.password) + '</p><p style="color:#666;font-size:12px;margin-top:20px">Conservez ces informations de manière confidentielle. Le mot de passe ne sera plus affiché.</p></body></html>');
     w.document.close();
     w.print();
   };
@@ -155,11 +155,11 @@
     $('b4-note').textContent = 'Transmettez ces accès aux familles et conservez-les de façon confidentielle. Les mots de passe ne pourront pas être relus ensuite.';
     $('b4-box').className = 'bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 text-sm max-h-72 overflow-y-auto';
     $('b4-box').innerHTML = credentials.map(c =>
-      '<div class=\"border-b border-slate-200 pb-2\"><b>' + esc(c.name) + '</b>' +
-      '<div>Matricule : <span class=\"font-mono text-sky-700\">' + esc(c.matricule) + '</span></div>' +
-      '<div>Mot de passe : <span class=\"font-mono text-emerald-700\">' + esc(c.password) + '</span></div></div>'
+      '<div class="border-b border-slate-200 pb-2"><b>' + esc(c.name) + '</b>' +
+      '<div>Matricule : <span class="font-mono text-sky-700">' + esc(c.matricule) + '</span></div>' +
+      '<div>Mot de passe : <span class="font-mono text-emerald-700">' + esc(c.password) + '</span></div></div>'
     ).join('');
-    $('b4-actions').innerHTML = '<button type=\"button\" onclick=\"b4CopyAllCredentials()\" class=\"flex-1 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs py-3 rounded-xl\">📋 Copier tous les accès</button>';
+    $('b4-actions').innerHTML = '<button type="button" onclick="b4CopyAllCredentials()" class="flex-1 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs py-3 rounded-xl">📋 Copier tous les accès</button>';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   };
@@ -480,6 +480,11 @@
     if (!guard()) return;
     const s = allStudentsDB[idx];
     if (!s) return;
+    const sid = IDS().student[s.matricule];
+    if (sid && typeof window.moveStudentToTrash === 'function') {
+      if (!confirm('Déplacer ' + s.nom + ' (' + s.matricule + ') vers la corbeille (conservé pendant 30 jours) ?')) return;
+      return window.moveStudentToTrash(sid);
+    }
     if (!confirm('Supprimer définitivement ' + s.nom + ' (' + s.matricule + ') et son compte ? Impossible si des notes, absences ou paiements sont enregistrés.')) return;
 
     try {
@@ -545,22 +550,22 @@
       const { data, error } = await query.order('created_at', { ascending: true });
 
       if (error) {
-        tbody.innerHTML = `<tr><td colspan=\"4\" class=\"p-4 text-center text-slate-400\">Impossible de charger la liste : ${esc(error.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Impossible de charger la liste : ${esc(error.message)}</td></tr>`;
         return;
       }
 
       if (!data || !data.length) {
-        tbody.innerHTML = `<tr><td colspan=\"4\" class=\"p-4 text-center text-slate-400\">Aucun administrateur trouvé.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Aucun administrateur trouvé.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = data.map(adm => `
-        <tr class=\"hover:bg-slate-50 transition border-b border-slate-100 text-xs\">
-          <td class=\"py-3 px-4 font-bold text-slate-900\">${esc(adm.full_name)}</td>
-          <td class=\"py-3 px-4 font-mono font-bold text-sky-700\">${esc(adm.matricule)}</td>
-          <td class=\"py-3 px-4 text-slate-500\">${adm.created_at ? new Date(adm.created_at).toLocaleDateString('fr-FR') : '—'}</td>
-          <td class=\"py-3 px-4 text-right space-x-1\">
-            <button type=\"button\" onclick=\"b5ResetMat('${esc(adm.matricule)}')\" class=\"bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold px-2 py-1 rounded-lg text-[11px] shadow-xs\">
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-xs">
+          <td class="py-3 px-4 font-bold text-slate-900">${esc(adm.full_name)}</td>
+          <td class="py-3 px-4 font-mono font-bold text-sky-700">${esc(adm.matricule)}</td>
+          <td class="py-3 px-4 text-slate-500">${adm.created_at ? new Date(adm.created_at).toLocaleDateString('fr-FR') : '—'}</td>
+          <td class="py-3 px-4 text-right space-x-1">
+            <button type="button" onclick="b5ResetMat('${esc(adm.matricule)}')\" class="bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold px-2 py-1 rounded-lg text-[11px] shadow-xs">
               🔄 Mot de passe
             </button>
           </td>
