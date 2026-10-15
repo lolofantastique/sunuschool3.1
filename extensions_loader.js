@@ -17,7 +17,15 @@
   function numbers(value) {
     return [...new Map((Array.isArray(value) ? value : [value]).map(String).map(s => s.trim()).filter(Boolean).map(s => [s.replace(/\D/g, ''), s])).values()];
   }
-  function row(value = '') {
+  function updatePhoneButtons() {
+    const list = $('school-phone-list');
+    if (!list) return;
+    [...list.children].forEach(line => {
+      const remove = line.querySelector('button');
+      if (remove) remove.style.display = list.children.length > 1 ? '' : 'none';
+    });
+  }
+  function row(value = '', options = {}) {
     const line = document.createElement('div');
     line.style.cssText = 'display:flex;gap:8px;margin:8px 0';
     const input = document.createElement('input');
@@ -25,10 +33,21 @@
     input.placeholder = '+221 77 123 45 67'; input.setAttribute('aria-label', 'Numero de telephone de l’ecole');
     input.style.cssText = 'flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:12px;padding:10px;background:#f8fafc';
     const remove = document.createElement('button');
-    remove.type = 'button'; remove.textContent = 'Retirer';
+    remove.type = 'button';
+    remove.textContent = 'Retirer';
+    remove.setAttribute('aria-label', 'Retirer ce numero');
     remove.style.cssText = 'padding:8px;color:#b91c1c';
-    remove.onclick = () => { line.remove(); if (!$('school-phone-list').children.length) row(); };
+    remove.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      line.remove();
+      const list = $('school-phone-list');
+      if (list && !list.children.length) row();
+      updatePhoneButtons();
+    });
     line.append(input, remove); $('school-phone-list').append(line);
+    updatePhoneButtons();
+    if (options.focus) input.focus();
   }
   function preview(url) {
     const img = $('school-image-preview');
@@ -71,7 +90,7 @@
       if (String(school().id) !== String(id)) return;
       reflect(data); mountedSchool = String(id);
       $('school-phone-list').replaceChildren();
-      const list = school().phones.length ? school().phones : ['']; list.forEach(row);
+      const list = school().phones.length ? school().phones : ['']; list.forEach(value => row(value));
       $('school-image-file').value = ''; preview(school().logo);
       $('school-identity-save').disabled = false; note('Le premier numero sera le contact principal.');
     } catch (e) { $('school-identity-save').disabled = true; note(e.message || String(e), true); }
@@ -117,7 +136,11 @@
     panel.style.cssText = 'background:white;border:1px solid #e2e8f0;border-radius:24px;padding:24px;margin:20px 0;font-size:13px';
     panel.innerHTML = `<h3 style="font-weight:800;font-size:17px;margin-bottom:12px">Telephones et logo des documents</h3><p>Ajoutez les numeros de l’ecole. Le premier est le contact principal.</p><div id="school-phone-list"></div><button type="button" id="school-phone-add" style="padding:10px;color:#047857;font-weight:700">+ Ajouter un numero</button><hr style="margin:16px 0"><label for="school-image-file" style="display:block;font-weight:700;margin-bottom:8px">Importer le logo depuis votre appareil</label><input id="school-image-file" type="file" accept="image/png,image/jpeg,image/webp"><p style="color:#64748b;margin:8px 0">PNG, JPG ou WebP • 1 Mo maximum. Le logo sera utilise dans les en-tetes imprimes.</p><img id="school-image-preview" alt="Apercu du logo" hidden style="width:96px;height:96px;object-fit:contain;border:1px solid #e2e8f0;border-radius:12px;margin:12px 0"><button id="school-identity-save" type="button" disabled style="background:#047857;color:white;font-weight:700;border-radius:12px;padding:12px 20px;margin-top:12px">Enregistrer les numeros et le logo</button><p id="school-identity-status" role="status" aria-live="polite" style="margin-top:12px">Ouvrez Parametres avec le compte directeur pour charger les informations.</p>`;
     tab.prepend(panel); row();
-    $('school-phone-add').onclick = () => row();
+    $('school-phone-add').addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      row('', { focus: true });
+    });
     $('school-identity-save').onclick = save;
     $('school-image-file').onchange = e => {
       const file = e.target.files[0]; if (!file) return preview(school().logo);
@@ -184,7 +207,7 @@
     new MutationObserver(() => mount()).observe(document.body, { childList: true, subtree: true });
     document.addEventListener('click', e => {
       const button = e.target.closest('button');
-      if (button && (button.id === 'btn-school-settings' || /paramètres/i.test(button.textContent))) { mount(); refresh(); }
+      if (button && button.id === 'btn-school-settings') { mount(); refresh(); }
       hookPrints();
     }, true);
     window.addEventListener('beforeprint', () => {
