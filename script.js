@@ -745,6 +745,7 @@
     var nextClassId = 1;
     classesMgtData.forEach(c => { c.id = nextClassId++; });
     var classesTrash = [];            // [{ cls, deletedAt }]
+    var teachersTrash = [];           // [{ teacher, deletedAt }]  ← NOUVEAU : corbeille enseignants
     var ctxClassId = null, ctxOpenedAt = 0;
     const TRASH_DAYS = 30, DAY_MS = 86400000;
 
@@ -804,7 +805,8 @@
     function closeModal(id) { const el = document.getElementById(id); el.classList.add('hidden'); el.classList.remove('flex'); }
     function purgeExpiredTrash() {
       const now = Date.now();
-      classesTrash = classesTrash.filter(t => now - t.deletedAt < TRASH_DAYS * DAY_MS);
+      classesTrash   = classesTrash.filter(t => now - t.deletedAt < TRASH_DAYS * DAY_MS);
+      teachersTrash  = teachersTrash.filter(t => now - t.deletedAt < TRASH_DAYS * DAY_MS);
     }
     function nameTaken(name, exceptId) {
       return classesMgtData.some(c => c.id !== exceptId && classKey(c.name) === classKey(name));
@@ -1131,7 +1133,7 @@
           </div>
           <div class="flex gap-2 shrink-0">
             <button onclick="editTeacher(${t.id})" class="bg-white border border-slate-300 hover:border-sky-500 text-slate-700 font-bold text-[11px] px-3 py-1.5 rounded-lg">✏️ Modifier</button>
-            <button onclick="deleteTeacher(this, ${t.id})" class="bg-white border border-slate-300 hover:border-rose-400 text-rose-600 font-bold text-[11px] px-3 py-1.5 rounded-lg">🗑️ Supprimer</button>
+            <button onclick="deleteTeacher(this, ${t.id})" class="bg-white border border-slate-300 hover:border-rose-400 text-rose-600 font-bold text-[11px] px-3 py-1.5 rounded-lg">🗑️ Corbeille</button>
           </div>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">${cols}</div>
@@ -1239,7 +1241,7 @@
       document.getElementById('t-name').focus();
     }
 
-    // Suppression : deux clics (pas de boîte de dialogue du navigateur)
+    // ── Corbeille enseignants (30 jours) ──
     function deleteTeacher(btn, id) {
       if (!btn.dataset.armed) {
         btn.dataset.armed = '1'; btn.textContent = 'Confirmer ?'; btn.classList.add('bg-rose-600', 'text-white');
@@ -1249,10 +1251,83 @@
       const i = teachersData.findIndex(t => t.id === id);
       if (i < 0) return;
       const [t] = teachersData.splice(i, 1);
+      teachersTrash.push({ teacher: t, deletedAt: Date.now() });
       selectedTeacherId = teachersData.length ? teachersData[0].id : null;
       resetTeacherForm();
-      showToast(`🗑️ ${t.name} retiré(e) du registre.`);
+      renderTeachers();
+      document.getElementById('teacher-trash-count') && (document.getElementById('teacher-trash-count').textContent = teachersTrash.length);
+      showToast(`🗑️ ${t.name} déplacé(e) dans la corbeille (conservé ${TRASH_DAYS} jours).`);
     }
+
+    window.openTeacherTrash = function() {
+      purgeExpiredTrash();
+      let modal = document.getElementById('teacher-trash-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'teacher-trash-modal';
+        modal.className = 'hidden fixed inset-0 z-[200] bg-slate-950/60 p-4 items-start justify-center overflow-y-auto';
+        modal.innerHTML = `<div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full mt-10 mb-10 overflow-hidden">
+          <div class="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+            <h2 class="font-black text-slate-900 text-base">🗑️ Corbeille — Enseignants</h2>
+            <button onclick="closeModal('teacher-trash-modal')" class="text-slate-400 hover:text-slate-900 text-xl font-bold">✕</button>
+          </div>
+          <div id="teacher-trash-body" class="divide-y divide-slate-100"></div>
+        </div>`;
+        document.body.appendChild(modal);
+      }
+      renderTeacherTrash();
+      openModal('teacher-trash-modal');
+    };
+
+    function renderTeacherTrash() {
+      purgeExpiredTrash();
+      const body = document.getElementById('teacher-trash-body');
+      if (!body) return;
+      if (!teachersTrash.length) {
+        body.innerHTML = '<div class="p-10 text-center text-slate-400 text-sm"><div class="text-3xl mb-2">✨</div>La corbeille enseignants est vide.</div>';
+        return;
+      }
+      body.innerHTML = teachersTrash.map(t => {
+        const daysLeft = Math.max(1, Math.ceil((t.deletedAt + TRASH_DAYS * DAY_MS - Date.now()) / DAY_MS));
+        return `<div class="px-5 py-3.5 flex items-center justify-between gap-3 text-xs">
+          <div>
+            <p class="font-extrabold text-slate-900 text-sm">${esc(t.teacher.name)} <span class="text-slate-500 font-normal">• ${esc(t.teacher.subject)}</span></p>
+            <p class="text-slate-500 font-mono">${esc(t.teacher.matricule)} • ${esc(t.teacher.phone)}</p>
+            <p class="text-amber-600 font-semibold">Suppression définitive dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}</p>
+          </div>
+          <div class="flex gap-1.5 shrink-0">
+            <button onclick="restoreTeacher(${t.teacher.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-[11px]">↩ Restaurer</button>
+            <button onclick="purgeTeacher(this, ${t.teacher.id})" class="bg-white border border-slate-300 hover:border-rose-400 text-rose-600 font-bold px-3 py-1.5 rounded-lg text-[11px]">Supprimer</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    window.restoreTeacher = function(id) {
+      const i = teachersTrash.findIndex(t => t.teacher.id === id);
+      if (i < 0) return;
+      const t = teachersTrash[i].teacher;
+      teachersTrash.splice(i, 1);
+      teachersData.push(t);
+      selectedTeacherId = t.id;
+      renderTeachers();
+      renderTeacherTrash();
+      showToast(`↩ ${t.name} restauré(e) dans le registre.`);
+    };
+
+    window.purgeTeacher = function(btn, id) {
+      if (!btn.dataset.armed) {
+        btn.dataset.armed = '1'; btn.textContent = 'Confirmer ?'; btn.classList.add('bg-rose-600', 'text-white');
+        setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = 'Supprimer'; btn.classList.remove('bg-rose-600', 'text-white'); } }, 3000);
+        return;
+      }
+      const i = teachersTrash.findIndex(t => t.teacher.id === id);
+      if (i < 0) return;
+      const name = teachersTrash[i].teacher.name;
+      teachersTrash.splice(i, 1);
+      renderTeacherTrash();
+      showToast(`❌ ${name} supprimé(e) définitivement.`);
+    };
 
     function handleEnrollStudent(e) {
       e.preventDefault();
@@ -1628,9 +1703,68 @@
         <p><b>Élève :</b> ${E(s ? s.nom : r.mat)} (${E(r.mat)})</p><p><b>Classe :</b> ${E(s ? s.classe : '—')}</p>
         <p><b>Motif :</b> Scolarité ${E(r.months || r.month)}</p><p><b>Mode :</b> ${E(r.method)} • Réf. ${E(r.ref)}</p>
         <p><b>Date :</b> ${E(r.date)}</p><p class="text-base font-black text-slate-900"><b>Montant :</b> ${money(r.total ?? r.amount)}</p></div>
-      <p class="text-center text-emerald-700 font-bold">✓ Paiement enregistré (simulation)</p>
-      <button onclick="window.print()" class="no-print w-full bg-slate-900 text-white font-bold py-2 rounded-xl">🖨️ Imprimer le reçu</button></div>`;
+      <p class="text-center text-emerald-700 font-bold">✓ Paiement enregistré</p>
+      <button onclick="printReceiptDedicated(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="no-print w-full bg-slate-900 text-white font-bold py-2 rounded-xl">🖨️ Imprimer le reçu</button></div>`;
   }
+
+  // Impression dédiée du reçu : ouvre une petite fenêtre au format reçu (80mm)
+  window.printReceiptDedicated = function(r) {
+    if (typeof r === 'string') { try { r = JSON.parse(r); } catch(_) {} }
+    const s = allStudentsDB.find(x => x.matricule === r.mat);
+    const schoolName = (window.SCHOOL && window.SCHOOL.name) || 'Groupe Scolaire';
+    const schoolCity = (window.SCHOOL && window.SCHOOL.city) || '';
+    const schoolPhone = (window.SCHOOL && window.SCHOOL.phone) || '';
+    const schoolYear = (window.SCHOOL && window.SCHOOL.schoolYear) || '';
+    const w = window.open('', '_blank', 'width=340,height=600,scrollbars=yes');
+    if (!w) { showToast('⚠️ Autorisez les pop-ups pour imprimer le reçu.'); return; }
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+      <title>Reçu ${E(r.rec)}</title>
+      <style>
+        @page { size: 80mm auto; margin: 4mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Courier New', monospace; font-size: 10pt; width: 72mm; color: #000; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .big { font-size: 12pt; font-weight: bold; }
+        .line { border-top: 1px dashed #000; margin: 4px 0; }
+        .doubleline { border-top: 2px solid #000; margin: 4px 0; }
+        .row { display: flex; justify-content: space-between; margin: 2px 0; }
+        .amount { font-size: 14pt; font-weight: bold; text-align: center; margin: 6px 0; }
+        .footer { font-size: 8pt; text-align: center; margin-top: 6px; color: #444; }
+        .signature { margin-top: 16px; display: flex; justify-content: space-between; font-size: 8pt; }
+        @media print { body { width: 72mm; } button { display: none !important; } }
+      </style>
+    </head><body>
+      <div class="center bold big">${E(schoolName)}</div>
+      <div class="center" style="font-size:9pt">${E(schoolCity)}${schoolCity && schoolPhone ? ' — ' : ''}${E(schoolPhone)}</div>
+      ${schoolYear ? `<div class="center" style="font-size:9pt">Année scolaire : ${E(schoolYear)}</div>` : ''}
+      <div class="doubleline"></div>
+      <div class="center bold" style="font-size:11pt">REÇU DE PAIEMENT</div>
+      <div class="center" style="font-size:9pt">N° ${E(r.rec)}</div>
+      <div class="line"></div>
+      <div class="row"><span>Élève :</span><span class="bold">${E(s ? s.nom : r.mat)}</span></div>
+      <div class="row"><span>Matricule :</span><span>${E(r.mat)}</span></div>
+      <div class="row"><span>Classe :</span><span>${E(s ? s.classe : '—')}</span></div>
+      <div class="line"></div>
+      <div class="row"><span>Motif :</span><span>Scolarité ${E(r.months || r.month)}</span></div>
+      <div class="row"><span>Mode :</span><span>${E(r.method)}</span></div>
+      <div class="row"><span>Réf. :</span><span>${E(r.ref || '—')}</span></div>
+      <div class="row"><span>Date :</span><span>${E(r.date)}</span></div>
+      <div class="line"></div>
+      <div class="amount">${String(r.total ?? r.amount).replace(/\B(?=(\d{3})+(?!\d))/g,' ')} FCFA</div>
+      <div class="center bold">✓ Paiement confirmé</div>
+      <div class="line"></div>
+      <div class="signature">
+        <div>Cachet de l'école</div>
+        <div>Signature</div>
+      </div>
+      <div class="footer">Conservez ce reçu. Merci de votre confiance.</div>
+      <br>
+      <div class="center"><button onclick="window.print();window.close()" style="background:#000;color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:11pt">🖨️ Imprimer</button></div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 400);
+  };
 
   window.payToggle = function (m) {
     const s = currentStudent(); if (!s || isPaid(s, m)) return;
@@ -1698,7 +1832,17 @@
   window.payRemind = function (mat) {
     if (currentRole !== 'admin') return;
     const s = allStudentsDB.find(x => x.matricule === mat); if (!s) return;
-    showToast(`💬 Relance WhatsApp (simulation) à ${s.parent} (${s.phone}) : reste dû ${money(dueNow(s).due)} pour ${s.nom}.`);
+    const due = dueNow(s).due;
+    const phone = digitsOf(s.phone);
+    // Construire le numéro WhatsApp au format international (Sénégal = 221)
+    const waPhone = phone.startsWith('221') ? phone : '221' + phone.replace(/^0+/, '');
+    const school = (window.SCHOOL && window.SCHOOL.name) || 'SunuSchool';
+    const msg = encodeURIComponent(
+      `Bonjour ${s.parent},\n\nNous vous contactons de la part de ${school}.\n\nVotre enfant *${s.nom}* a un solde impayé de *${money(due)}* au titre de la scolarité.\n\nMerci de vous rapprocher de l'administration pour régulariser votre situation.\n\nCordialement,\n${school}`
+    );
+    const waUrl = `https://wa.me/${waPhone}?text=${msg}`;
+    window.open(waUrl, '_blank');
+    showToast(`💬 WhatsApp ouvert pour ${s.parent} (${s.phone}) — solde dû : ${money(due)}.`);
   };
   function renderPayAdmin(root) {
     const total = PAY.reduce((a, p) => a + p.amount, 0), by = m => PAY.filter(p => p.method === m).reduce((a, p) => a + p.amount, 0);
@@ -1937,7 +2081,7 @@
     }
   };
   const snapshot = () => JSON.stringify({
-    v: 9, ts: Date.now(), GR, ATT, PAY, classes: classesMgtData, trash: classesTrash, students: allStudentsDB, teachers: teachersData,
+    v: 9, ts: Date.now(), GR, ATT, PAY, classes: classesMgtData, trash: classesTrash, teachersTrash: teachersTrash, students: allStudentsDB, teachers: teachersData,
     c: { nextMatriculeNum, nextClassId, nextTeacherId, nextTeacherNum, dailyCash }
   });
   const core = () => { const o = JSON.parse(snapshot()); delete o.ts; return JSON.stringify(o); };
@@ -1961,7 +2105,7 @@
   }
   function applyState(sv) {
     const rep = (arr, src) => { if (Array.isArray(src)) arr.splice(0, arr.length, ...src); };
-    rep(classesMgtData, sv.classes); rep(classesTrash, sv.trash); rep(allStudentsDB, sv.students); rep(teachersData, sv.teachers);
+    rep(classesMgtData, sv.classes); rep(classesTrash, sv.trash); rep(teachersTrash, sv.teachersTrash); rep(allStudentsDB, sv.students); rep(teachersData, sv.teachers);
     if (sv.GR && sv.GR.S1 && sv.GR.S2) GR = sv.GR;
     ATT = sv.att || sv.ATT || {};
     PAY = Array.isArray(sv.PAY) ? sv.PAY : (Array.isArray(sv.pay) ? sv.pay : buildSeedPay());
@@ -2291,7 +2435,159 @@
     rcMat = currentRole === 'student' ? currentStudentMat : ''; selClass = null; attClass = null; payMonths = new Set(); lastReceipt = null;
     ensureCoeffField(); syncSubjects(); createAbsTab(); createPayTab();
     origRefresh(); applyRoleUI(); renderTeachers(); renderAbsAdmin(); renderPayments();
+    // Afficher/masquer les boutons "Créer Administrateur" selon is_director
+    const btnAdm = document.getElementById('btn-create-admin');
+    if (btnAdm) btnAdm.classList.toggle('hidden', !window.sunuIsDirector);
+    const btnTop = document.getElementById('btn-create-admin-top');
+    if (btnTop) btnTop.classList.toggle('hidden', !window.sunuIsDirector);
+    // Mettre à jour le compteur corbeille enseignants
+    const tc = document.getElementById('teacher-trash-count');
+    if (tc) tc.textContent = (typeof teachersTrash !== 'undefined' ? teachersTrash.length : 0);
   };
+
+  window.openCreateAdminModal = function() {
+    if (!window.sunuIsDirector) {
+      showToast('🔒 Seul le directeur créé dans Supabase peut créer un administrateur.');
+      return;
+    }
+    const modal = document.getElementById('create-admin-modal');
+    if (!modal) return;
+    const res = document.getElementById('create-admin-result');
+    const flds = document.getElementById('create-admin-form-fields');
+    const inp = document.getElementById('new-admin-name');
+    if (res) res.classList.add('hidden');
+    if (flds) flds.classList.remove('hidden');
+    if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 100); }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  };
+
+  window.printReceipt = window.printReceiptDedicated;
+
+  window.printCashReceipt = function() {
+    const rcptNumber = (document.getElementById('rcpt-number') || {}).textContent || '';
+    if (!rcptNumber || rcptNumber.includes('-')) {
+      showToast("⚠️ Aucun reçu à imprimer. Effectuez d'abord un encaissement.");
+      return;
+    }
+    const student = (document.getElementById('rcpt-student') || {}).textContent || '';
+    const matricule = (document.getElementById('rcpt-account') || {}).textContent || '';
+    const payer = (document.getElementById('rcpt-payer') || {}).textContent || '';
+    const motif = (document.getElementById('rcpt-motif') || {}).textContent || '';
+    const amount = (document.getElementById('rcpt-amount') || {}).textContent || '';
+    const mode = (document.getElementById('rcpt-mode') || {}).textContent || '';
+    const date = (document.getElementById('rcpt-date') || {}).textContent || '';
+    
+    const schoolName = (window.SCHOOL && window.SCHOOL.name) || 'SunuSchool';
+    const schoolCity = (window.SCHOOL && window.SCHOOL.city) || '';
+    const schoolPhone = (window.SCHOOL && window.SCHOOL.phone) || '';
+    const schoolYear = (window.SCHOOL && window.SCHOOL.schoolYear) || '';
+
+    const w = window.open('', '_blank', 'width=340,height=600,scrollbars=yes');
+    if (!w) { showToast('⚠️ Autorisez les pop-ups pour imprimer le reçu.'); return; }
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+      <title>${E(rcptNumber)}</title>
+      <style>
+        @page { size: 80mm auto; margin: 4mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Courier New', monospace; font-size: 10pt; width: 72mm; color: #000; padding: 2mm; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .big { font-size: 12pt; font-weight: bold; }
+        .line { border-top: 1px dashed #000; margin: 5px 0; }
+        .doubleline { border-top: 2px solid #000; margin: 5px 0; }
+        .row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 9pt; }
+        .amount { font-size: 14pt; font-weight: bold; text-align: center; margin: 8px 0; }
+        .footer { font-size: 8pt; text-align: center; margin-top: 8px; color: #444; }
+        .signature { margin-top: 18px; display: flex; justify-content: space-between; font-size: 8pt; }
+        @media print { body { width: 72mm; } button { display: none !important; } }
+      </style>
+    </head><body>
+      <div class="center bold big">${E(schoolName)}</div>
+      <div class="center" style="font-size:8.5pt">${E(schoolCity)}${schoolCity && schoolPhone ? ' — ' : ''}${E(schoolPhone)}</div>
+      ${schoolYear ? `<div class="center" style="font-size:8.5pt">Année scolaire : ${E(schoolYear)}</div>` : ''}
+      <div class="doubleline"></div>
+      <div class="center bold" style="font-size:11pt">REÇU DE PAIEMENT CAISSE</div>
+      <div class="center bold font-mono" style="font-size:9.5pt">${E(rcptNumber)}</div>
+      <div class="center" style="font-size:8pt">${E(date)}</div>
+      <div class="line"></div>
+      <div class="row"><span>Élève :</span><span class="bold">${E(student)}</span></div>
+      <div class="row"><span>Matricule :</span><span class="bold font-mono">${E(matricule)}</span></div>
+      <div class="row"><span>Payeur :</span><span>${E(payer)}</span></div>
+      <div class="line"></div>
+      <div class="row"><span>Motif :</span><span>${E(motif)}</span></div>
+      <div class="row"><span>Mode :</span><span>${E(mode)}</span></div>
+      <div class="line"></div>
+      <div class="amount">${E(amount)}</div>
+      <div class="center bold">✓ Paiement reçu en caisse</div>
+      <div class="line"></div>
+      <div class="signature">
+        <div>Tampon de l'école</div>
+        <div>Signature Caissier</div>
+      </div>
+      <div class="footer">Conservez ce reçu officiel.<br>Merci de votre confiance.</div>
+      <br>
+      <div class="center"><button onclick="window.print();window.close()" style="background:#000;color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:11pt">🖨️ Imprimer</button></div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 350);
+  };
+
+  // ── Création de compte administrateur (directeur uniquement) ──
+  let _lastAdminCreated = null;
+
+  window.handleCreateAdmin = async function(e) {
+    e.preventDefault();
+    if (!window.sunuIsDirector) { showToast('🔒 Seul le directeur peut créer un administrateur.'); return; }
+    const name = (document.getElementById('new-admin-name') || {}).value?.trim();
+    if (!name || name.length < 3) { showToast('⚠️ Indiquez le nom complet (au moins 3 caractères).'); return; }
+    const btn = document.getElementById('create-admin-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Création…'; }
+    try {
+      const { data: sess } = await window.sb.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) throw new Error('Non connecté');
+      const res = await fetch('https://bmhdxzkuhueflnricgpx.supabase.co/functions/v1/create-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ role: 'admin', full_name: name })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Erreur inconnue');
+      _lastAdminCreated = { name: data.full_name, mat: data.matricule, pwd: data.password };
+      document.getElementById('new-admin-mat').textContent = data.matricule;
+      document.getElementById('new-admin-pwd').textContent = data.password;
+      document.getElementById('create-admin-result').classList.remove('hidden');
+      document.getElementById('create-admin-form-fields').classList.add('hidden');
+      showToast(`✅ Administrateur ${data.full_name} créé • Matricule : ${data.matricule}`);
+    } catch(err) {
+      showToast('⚠️ Échec : ' + (err.message || err));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '✔ Créer le compte'; }
+    }
+  };
+
+  window.copyAdminCredentials = function() {
+    if (!_lastAdminCreated) return;
+    const txt = `SunuSchool — Administrateur\nNom : ${_lastAdminCreated.name}\nMatricule : ${_lastAdminCreated.mat}\nMot de passe : ${_lastAdminCreated.pwd}`;
+    navigator.clipboard?.writeText(txt).then(() => showToast('✅ Identifiants copiés.')).catch(() => showToast('⚠️ Copiez manuellement les identifiants.'));
+  };
+
+  window.printAdminCredentials = function() {
+    if (!_lastAdminCreated) return;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const school = (window.SCHOOL && window.SCHOOL.name) || 'SunuSchool';
+    w.document.write(`<html><head><title>Identifiants Administrateur</title></head><body style="font-family:Arial;padding:30px">
+      <h2>${school} — Identifiants Administrateur</h2>
+      <p><b>Nom :</b> ${_lastAdminCreated.name}</p>
+      <p><b>Matricule :</b> ${_lastAdminCreated.mat}</p>
+      <p><b>Mot de passe :</b> <span style="font-family:monospace;font-size:16px;letter-spacing:3px">${_lastAdminCreated.pwd}</span></p>
+      <p style="color:#b45309">⚠️ Conservez ces informations de manière confidentielle.</p>
+    </body></html>`);
+    w.document.close(); w.print();
+  };
+
 
   /* ---------- Essai : remplace les données du prototype par celles de Supabase ---------- */
   window.sunuHydrate = function (R) {
@@ -2536,9 +2832,19 @@
 
   // Entre dans le site avec le profil lu dans Supabase. Retourne 'ok' | 'noprofile' | 'role' | 'data'.
   async function enterSession(user, expectedRole) {
-    const { data: prof, error } = await sb.from('profiles').select('role, matricule, full_name, school_id').eq('id', user.id).maybeSingle();
-    if (error || !prof) return 'noprofile';
+    let prof = null;
+    const { data: p1, error: e1 } = await sb.from('profiles').select('role, matricule, full_name, school_id, is_director').eq('id', user.id).maybeSingle();
+    if (!e1 && p1) {
+      prof = p1;
+    } else {
+      const { data: p2, error: e2 } = await sb.from('profiles').select('role, matricule, full_name, school_id').eq('id', user.id).maybeSingle();
+      if (e2 || !p2) return 'noprofile';
+      prof = p2;
+    }
     if (expectedRole && prof.role !== expectedRole) return 'role';
+
+    // Seul l'administrateur avec is_director = true dans Supabase peut créer d'autres administrateurs
+    window.sunuIsDirector = Boolean(prof.role === 'admin' && (prof.is_director === true || prof.is_director === 'true'));
 
     // Synchronisation automatique de l'école de l'utilisateur connecté depuis Supabase
     if (prof.school_id && sb) {
@@ -2560,7 +2866,7 @@
       console.error(e); lastError = e.message || String(e); return 'data';
     }
     currentRole = prof.role;
-    let label = '🧑‍💼 Administration';
+    let label = window.sunuIsDirector ? '👑 Direction (Admin)' : '🧑‍💼 Administration';
     if (prof.role === 'student') {
       currentStudentMat = prof.matricule;
       const s = allStudentsDB.find(x => alnum(x.matricule) === alnum(prof.matricule));

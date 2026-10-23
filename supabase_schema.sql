@@ -58,9 +58,16 @@ CREATE TABLE IF NOT EXISTS profiles (
   role        TEXT        NOT NULL CHECK (role IN ('student', 'teacher', 'admin')),
   matricule   TEXT        NOT NULL,
   full_name   TEXT        NOT NULL,
+  is_director BOOLEAN     DEFAULT FALSE,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(school_id, matricule)
 );
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_director BOOLEAN DEFAULT FALSE;
+-- Seul l'administrateur avec is_director = TRUE peut créer d'autres administrateurs.
+-- Pour désigner votre administrateur comme Directeur (exécutez ceci dans l'éditeur SQL Supabase) :
+-- UPDATE profiles SET is_director = TRUE WHERE matricule = 'VOTRE_MATRICULE';
+
 
 -- ============================================================
 -- SECTION 4 : CLASSES
