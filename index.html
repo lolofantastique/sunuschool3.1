@@ -51,13 +51,28 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-800 mb-1">Mot de passe personnel</label>
-          <input type="password" id="login-pwd-input" required placeholder="Votre mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" class="glass-input w-full text-xs font-semibold text-slate-900 rounded-2xl px-4 py-3 focus:outline-none">
+          <label class="block text-xs font-bold text-slate-800 mb-1">Mot de passe personnel <span class="font-normal text-slate-500">(optionnel pour la démo)</span></label>
+          <input type="password" id="login-pwd-input" placeholder="Votre mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" class="glass-input w-full text-xs font-semibold text-slate-900 rounded-2xl px-4 py-3 focus:outline-none">
         </div>
 
         <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white font-extrabold text-xs py-3.5 px-4 rounded-2xl shadow-xl transition active:scale-95">
           Se Connecter
         </button>
+
+        <div class="pt-3 border-t border-slate-900/10 text-center space-y-2">
+          <span class="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider block">⚡ Accès Démo Immédiat (1 clic)</span>
+          <div class="flex flex-wrap justify-center gap-1.5 text-[11px]">
+            <button type="button" onclick="quickLoginDemo('ADM-001','admin')" class="bg-violet-700/15 hover:bg-violet-700/25 border border-violet-700/30 text-violet-900 font-bold px-2.5 py-1 rounded-xl transition">
+              👑 Admin (ADM-001)
+            </button>
+            <button type="button" onclick="quickLoginDemo('ENS-2025-002','teacher')" class="bg-sky-700/15 hover:bg-sky-700/25 border border-sky-700/30 text-sky-900 font-bold px-2.5 py-1 rounded-xl transition">
+              👨‍🏫 Prof (ENS-2025-002)
+            </button>
+            <button type="button" onclick="quickLoginDemo('SN-2025-0412','student')" class="bg-emerald-700/15 hover:bg-emerald-700/25 border border-emerald-700/30 text-emerald-900 font-bold px-2.5 py-1 rounded-xl transition">
+              🎓 Élève (SN-2025-0412)
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   </div>

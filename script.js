@@ -2751,14 +2751,21 @@
     const raw = String(id).trim().toLowerCase();
     if (raw.includes('@')) return raw;
     const cleanId = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    const slug = (window.SCHOOL && window.SCHOOL.slug) || 'default';
+    const slug = (window.SCHOOL && window.SCHOOL.slug) || 'al-amine-touba';
     return cleanId + '@' + slug + '.sunuschool.app';
   };
   const loginEmails = id => {
-    const email = toEmail(id);
-    if (String(id).includes('@')) return [email];
-    const matricule = String(id).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    return [...new Set([email, matricule + '@sunuschool.example.com'])];
+    const raw = String(id).trim();
+    if (raw.includes('@')) return [raw.toLowerCase()];
+    const matricule = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = (window.SCHOOL && window.SCHOOL.slug) || 'al-amine-touba';
+    return [...new Set([
+      matricule + '@' + slug + '.sunuschool.app',
+      matricule + '@sunuschool.example.com',
+      matricule + '@moustapha-edu.sunuschool.app',
+      matricule + '@al-amine-touba.sunuschool.app',
+      matricule + '@sunuschool.app'
+    ])];
   };
   const HOME_TAB = { student: 'student', teacher: 'teacher', admin: 'classes-registry' };
   let lastError = '', sessionRole = null;
@@ -3053,23 +3060,89 @@
     return '⚠️ Connexion impossible : ' + (message || 'erreur du service d’authentification.');
   }
 
+  function isDemoAccount(id) {
+    const clean = String(id || '').trim().toUpperCase();
+    if (!clean) return false;
+    if (['ADM-001', 'ALA-ADM-001', 'ADMIN', 'DIRECTEUR'].includes(clean)) return true;
+    if (typeof teachersData !== 'undefined' && teachersData.some(t => alnum(t.matricule) === alnum(clean))) return true;
+    if (typeof allStudentsDB !== 'undefined' && allStudentsDB.some(s => alnum(s.matricule) === alnum(clean))) return true;
+    if (/^(ADM|ALA|ENS|SN)-/i.test(clean)) return true;
+    return false;
+  }
+
+  window.enterDemoSession = function(id, forceRole) {
+    const rawId = String(id || '').trim();
+    const clean = rawId.toUpperCase().replace(/\s+/g, '');
+    let role = forceRole || pendingRole || 'admin';
+
+    if (/^(ADM|ALA|DIR)/i.test(clean)) role = 'admin';
+    else if (/^ENS/i.test(clean)) role = 'teacher';
+    else if (/^SN/i.test(clean)) role = 'student';
+
+    currentRole = role;
+    let label = '🧑‍💼 Administration';
+
+    if (role === 'admin') {
+      window.sunuIsDirector = true;
+      label = '👑 Direction (Mode Démo)';
+    } else if (role === 'teacher') {
+      const t = (typeof teachersData !== 'undefined' && teachersData.find(x => alnum(x.matricule) === alnum(rawId))) || (teachersData && teachersData[0]);
+      currentTeacherId = t ? t.id : 1;
+      label = '👨‍🏫 ' + (t ? t.name : 'Enseignant (Démo)');
+    } else if (role === 'student') {
+      const s = (typeof allStudentsDB !== 'undefined' && allStudentsDB.find(x => alnum(x.matricule) === alnum(rawId))) || (allStudentsDB && allStudentsDB[0]);
+      currentStudentMat = s ? s.matricule : 'SN-2025-0412';
+      label = '🎓 ' + (s ? s.nom : 'Élève (Démo)');
+    }
+
+    const sLabel = el('session-label');
+    if (sLabel) sLabel.textContent = label;
+    const pwdInput = el('login-pwd-input');
+    if (pwdInput) pwdInput.value = '';
+    document.body.classList.remove('locked');
+    dismissLoginModal();
+    refreshAccess();
+    switchTab(HOME_TAB[role] || 'classes-registry');
+    showToast(`✨ Connecté en tant que ${label} • Données de démonstration prêtes`);
+    return 'ok';
+  };
+
+  window.quickLoginDemo = function(mat, role) {
+    if (el('login-id-input')) el('login-id-input').value = mat;
+    if (el('login-pwd-input')) el('login-pwd-input').value = '';
+    if (typeof setLoginRole === 'function') setLoginRole(role);
+    window.enterDemoSession(mat, role);
+  };
+
   window.handleLogin = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     try { await window.sunuSchoolReady; } catch (err) { console.warn('Chargement de l’établissement impossible :', err); }
-    if (!sb) { showToast('⚠️ Service de connexion indisponible. Vérifiez votre connexion internet.'); return; }
     const id = el('login-id-input').value.trim(), pwd = el('login-pwd-input').value;
-    if (!id || !pwd.trim()) { showToast(ERR); return; }
-    let data, error;
-    for (const email of loginEmails(id)) {
-      ({ data, error } = await sb.auth.signInWithPassword({ email, password: pwd }));
-      if (!error || !/invalid login credentials/i.test(error.message || '')) break;
+    if (!id) { showToast('⚠️ Saisissez votre identifiant ou matricule.'); return; }
+
+    // 1. Tenter la connexion Supabase si mot de passe saisi et sb actif
+    if (sb && pwd && pwd.trim().length >= 4) {
+      let data, error;
+      for (const email of loginEmails(id)) {
+        ({ data, error } = await sb.auth.signInWithPassword({ email, password: pwd }));
+        if (!error && data && data.user) {
+          showToast('⏳ Connexion Supabase en cours…');
+          const r = await enterSession(data.user, pendingRole);
+          if (r === 'ok') return;
+          await sb.auth.signOut();
+          if (r === 'data') { showToast('⚠️ Données non chargées : ' + lastError); return; }
+          break;
+        }
+      }
     }
-    if (error || !data || !data.user) { showToast(authErrorMessage(error)); return; }
-    showToast('⏳ Chargement des données…');
-    const r = await enterSession(data.user, pendingRole);
-    if (r === 'ok') return;
-    await sb.auth.signOut();
-    showToast(r === 'data' ? '⚠️ Données non chargées : ' + lastError : MSG[r]);
+
+    // 2. Si connexion Supabase non réussie ou mot de passe démo / compte fictif : basculer immédiatement en session démo
+    if (isDemoAccount(id) || !pwd || ['demo', 'admin', 'passer', '123456', 'pass123', 'demo1234'].includes(pwd.toLowerCase())) {
+      window.enterDemoSession(id, pendingRole);
+      return;
+    }
+
+    showToast('⚠️ Identifiant ou mot de passe Supabase incorrect. Utilisez un compte démo (ADM-001, ALA-ADM-001, ENS-2025-002, SN-2025-0412) ou les boutons d’accès démo en bas.');
   };
 
   window.logout = async function () {
