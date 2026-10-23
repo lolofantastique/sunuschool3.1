@@ -304,53 +304,27 @@
     if (!guard()) return;
     if (!btn.dataset.armed) {
       btn.dataset.armed = '1'; btn.textContent = 'Confirmer ?'; btn.classList.add('bg-rose-600', 'text-white');
-      setTimeout(() => { if (!btn.isConnected) return; delete btn.dataset.armed; btn.textContent = '🗑️ Corbeille'; btn.classList.remove('bg-rose-600', 'text-white'); }, 3000);
+      setTimeout(() => { if (!btn.isConnected) return; delete btn.dataset.armed; btn.textContent = 'Supprimer'; btn.classList.remove('bg-rose-600', 'text-white'); }, 3000);
       return;
     }
     const t = teachersData.find(x => x.id === id);
     if (!t) return;
 
-    // Déplacement dans la corbeille enseignants (30 jours)
-    const i = teachersData.findIndex(x => x.id === id);
-    if (i >= 0) teachersData.splice(i, 1);
-    if (typeof teachersTrash !== 'undefined') {
-      teachersTrash.push({ teacher: t, deletedAt: Date.now() });
-    }
-    if (typeof selectedTeacherId !== 'undefined') {
-      selectedTeacherId = teachersData.length ? teachersData[0].id : null;
-    }
-    if (typeof resetTeacherForm === 'function') resetTeacherForm();
-    if (typeof renderTeachers === 'function') renderTeachers();
-    const countEl = $('teacher-trash-count');
-    if (countEl && typeof teachersTrash !== 'undefined') countEl.textContent = teachersTrash.length;
-    toast(`🗑️ ${t.name} déplacé(e) dans la corbeille (conservé 30 jours).`);
-  };
+    try {
+      const { error } = await sbc().from('teachers').delete().eq('id', id);
+      if (error) throw error;
 
-  window.purgeTeacher = async function (btn, id) {
-    if (!guard()) return;
-    if (!btn.dataset.armed) {
-      btn.dataset.armed = '1'; btn.textContent = 'Confirmer ?'; btn.classList.add('bg-rose-600', 'text-white');
-      setTimeout(() => { if (!btn.isConnected) return; delete btn.dataset.armed; btn.textContent = 'Supprimer'; btn.classList.remove('bg-rose-600', 'text-white'); }, 3000);
-      return;
-    }
-    const i = typeof teachersTrash !== 'undefined' ? teachersTrash.findIndex(t => t.teacher.id === id) : -1;
-    const t = i >= 0 ? teachersTrash[i].teacher : null;
-    if (i >= 0) teachersTrash.splice(i, 1);
-    if (typeof renderTeacherTrash === 'function') renderTeacherTrash();
-    const countEl = $('teacher-trash-count');
-    if (countEl && typeof teachersTrash !== 'undefined') countEl.textContent = teachersTrash.length;
-
-    if (t && sbc()) {
+      // Nettoyer compte Auth & profil
       try {
-        await sbc().from('teachers').delete().eq('id', id);
-        try {
-          await callFn({ action: 'delete', role: 'teacher', matricule: t.matricule });
-        } catch (_) {}
-      } catch (err) {
-        console.warn('Erreur suppression Supabase:', err);
+        await callFn({ action: 'delete', role: 'teacher', matricule: t.matricule });
+      } catch (fnErr) {
+        console.warn('create-account delete warning:', fnErr);
       }
+
+      await reload('✅ ' + t.name + ' retiré(e) du registre.');
+    } catch (err) {
+      toast('⚠️ ' + human(err));
     }
-    toast(`❌ ${t ? t.name : 'Enseignant'} supprimé(e) définitivement.`);
   };
 
   window.handleAddSlot = async function (e) {
@@ -494,20 +468,16 @@
   window.handleCreateAdmin = async function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!guard()) return;
-    if (!window.sunuIsDirector) {
-      toast('🔒 Seul le directeur créé dans Supabase peut créer d’autres administrateurs.');
-      return;
-    }
 
-    const nom = ($('adm-nom') && $('adm-nom').value.trim()) || ($('new-admin-name') && $('new-admin-name').value.trim()) || '';
-    const mat = ($('adm-mat') && $('adm-mat').value.trim().toUpperCase()) || '';
-    const pwd = ($('adm-pwd') && $('adm-pwd').value.trim()) || '';
+    const nom = $('adm-nom') ? $('adm-nom').value.trim() : '';
+    const mat = $('adm-mat') ? $('adm-mat').value.trim().toUpperCase() : '';
+    const pwd = $('adm-pwd') ? $('adm-pwd').value.trim() : '';
 
-    if (!nom || nom.length < 3) return toast('⚠️ Nom complet de l’administrateur obligatoire (au moins 3 caractères).');
+    if (!nom) return toast('⚠️ Nom complet de l’administrateur obligatoire.');
     if (pwd && pwd.length < 8) return toast('⚠️ Le mot de passe doit comporter au moins 8 caractères.');
 
-    const btn = (e && e.submitter) || $('create-admin-btn');
-    if (btn) { btn.disabled = true; if (btn.tagName === 'BUTTON') btn.dataset.origText = btn.textContent; }
+    const btn = e && e.submitter;
+    if (btn) btn.disabled = true;
 
     try {
       const reqBody = { action: 'create', role: 'admin', full_name: nom };
@@ -516,21 +486,11 @@
 
       const r = await callFn(reqBody);
 
-      ['adm-nom', 'adm-mat', 'adm-pwd', 'new-admin-name'].forEach(i => { if ($(i)) $(i).value = ''; });
-
-      // Si le formulaire modale est présent, afficher le résultat dans la modale
-      if ($('create-admin-result')) {
-        if ($('new-admin-mat')) $('new-admin-mat').textContent = r.matricule;
-        if ($('new-admin-pwd')) $('new-admin-pwd').textContent = r.password;
-        $('create-admin-result').classList.remove('hidden');
-        if ($('create-admin-form-fields')) $('create-admin-form-fields').classList.add('hidden');
-        window._lastAdminCreated = { name: r.full_name || nom, mat: r.matricule, pwd: r.password };
-      }
-
+      ['adm-nom', 'adm-mat', 'adm-pwd'].forEach(i => { if ($(i)) $(i).value = ''; });
       await reload('🧑‍💼 Compte administrateur créé pour ' + nom + '.');
       showCred({
         title: 'Nouveau compte Administrateur',
-        note: 'Remettez ces identifiants au nouvel administrateur. Il aura les pleins droits d’administration sur l’établissement.',
+        note: 'Remettez ces identifiants au nouvel administrateur. Il aura les pleins droits sur l’établissement.',
         name: r.full_name || nom,
         matricule: r.matricule,
         password: r.password
@@ -542,10 +502,7 @@
     } catch (err) {
       toast('⚠️ ' + human(err));
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
-      }
+      if (btn) btn.disabled = false;
     }
   };
 

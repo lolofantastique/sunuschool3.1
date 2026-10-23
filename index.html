@@ -51,28 +51,13 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-800 mb-1">Mot de passe personnel <span class="font-normal text-slate-500">(optionnel pour la démo)</span></label>
-          <input type="password" id="login-pwd-input" placeholder="Votre mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" class="glass-input w-full text-xs font-semibold text-slate-900 rounded-2xl px-4 py-3 focus:outline-none">
+          <label class="block text-xs font-bold text-slate-800 mb-1">Mot de passe personnel</label>
+          <input type="password" id="login-pwd-input" required placeholder="Votre mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" class="glass-input w-full text-xs font-semibold text-slate-900 rounded-2xl px-4 py-3 focus:outline-none">
         </div>
 
         <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white font-extrabold text-xs py-3.5 px-4 rounded-2xl shadow-xl transition active:scale-95">
           Se Connecter
         </button>
-
-        <div class="pt-3 border-t border-slate-900/10 text-center space-y-2">
-          <span class="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider block">⚡ Accès Démo Immédiat (1 clic)</span>
-          <div class="flex flex-wrap justify-center gap-1.5 text-[11px]">
-            <button type="button" onclick="quickLoginDemo('ADM-001','admin')" class="bg-violet-700/15 hover:bg-violet-700/25 border border-violet-700/30 text-violet-900 font-bold px-2.5 py-1 rounded-xl transition">
-              👑 Admin (ADM-001)
-            </button>
-            <button type="button" onclick="quickLoginDemo('ENS-2025-002','teacher')" class="bg-sky-700/15 hover:bg-sky-700/25 border border-sky-700/30 text-sky-900 font-bold px-2.5 py-1 rounded-xl transition">
-              👨‍🏫 Prof (ENS-2025-002)
-            </button>
-            <button type="button" onclick="quickLoginDemo('SN-2025-0412','student')" class="bg-emerald-700/15 hover:bg-emerald-700/25 border border-emerald-700/30 text-emerald-900 font-bold px-2.5 py-1 rounded-xl transition">
-              🎓 Élève (SN-2025-0412)
-            </button>
-          </div>
-        </div>
       </form>
     </div>
   </div>
@@ -319,7 +304,7 @@
               <h3 class="font-extrabold text-slate-900 text-sm">Aperçu du Reçu Officiel de Caisse</h3>
               <p class="text-[11px] text-slate-500">Document généré automatiquement à chaque encaissement en liquide</p>
             </div>
-            <button onclick="printCashReceipt()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-sm">
+            <button onclick="window.print()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-sm">
               🖨️ Imprimer le Reçu
             </button>
           </div>
@@ -689,9 +674,6 @@
                 <p class="text-[11px] text-slate-500">Clic droit sur une classe (appui long sur mobile) pour la modifier ou la supprimer.</p>
               </div>
               <div class="flex items-center gap-2">
-                <button id="btn-create-admin-top" onclick="openCreateAdminModal()" class="hidden bg-violet-700 hover:bg-violet-800 text-white text-[11px] font-bold px-3 py-1 rounded-full transition shadow-sm">
-                  🛡️ Créer Admin
-                </button>
                 <button onclick="openTrash()" class="bg-white border border-slate-300 hover:border-rose-400 text-slate-700 hover:text-rose-600 text-[11px] font-bold px-3 py-1 rounded-full transition">
                   🗑️ Corbeille (<span id="trash-count">0</span>)
                 </button>
@@ -817,10 +799,6 @@
             <span class="text-[10px] text-sky-200 block uppercase font-bold">Heures / semaine</span>
             <span class="text-2xl font-black text-white" id="tch-hours">0</span>
           </div>
-          <!-- BOUTON CORBEILLE ENSEIGNANTS -->
-          <button onclick="openTeacherTrash()" class="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-200 font-bold text-xs px-3 py-2 rounded-2xl transition flex items-center gap-1.5">
-            🗑️ Corbeille (<span id="teacher-trash-count">0</span>)
-          </button>
         </div>
       </div>
 
@@ -934,41 +912,6 @@
         <button onclick="closeModal('class-trash-modal')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold shrink-0">✕</button>
       </div>
       <div id="trash-body" class="overflow-auto custom-scrollbar divide-y divide-slate-100"></div>
-    </div>
-  </div>
-
-  <!-- FENÊTRE : CRÉATION D'UN COMPTE ADMINISTRATEUR (visible uniquement au directeur) -->
-  <div id="create-admin-modal" class="no-print fixed inset-0 z-[200] hidden items-center justify-center p-4 bg-slate-950/70" onclick="if(event.target===this)closeModal('create-admin-modal')">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="font-black text-slate-900 text-base">🛡️ Créer un Administrateur</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Réservé au directeur de l'établissement.</p>
-        </div>
-        <button onclick="closeModal('create-admin-modal')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold">✕</button>
-      </div>
-      <form onsubmit="handleCreateAdmin(event)" class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nom complet de l'administrateur</label>
-          <input type="text" id="new-admin-name" required minlength="3" placeholder="Ex : M. Cheikh Fall" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500">
-        </div>
-        <div id="create-admin-result" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-1 text-xs">
-          <p class="font-extrabold text-emerald-800">✅ Compte créé avec succès !</p>
-          <p>🆔 Matricule : <b id="new-admin-mat" class="font-mono text-sky-700"></b></p>
-          <p>🔑 Mot de passe : <b id="new-admin-pwd" class="font-mono text-emerald-700 tracking-widest"></b></p>
-          <p class="text-amber-700 font-semibold">⚠️ Notez ce mot de passe maintenant, il ne sera plus affiché.</p>
-          <div class="flex gap-2 mt-2">
-            <button type="button" onclick="copyAdminCredentials()" class="flex-1 bg-sky-700 hover:bg-sky-800 text-white font-bold py-2 rounded-xl">📋 Copier</button>
-            <button type="button" onclick="printAdminCredentials()" class="flex-1 bg-slate-900 hover:bg-black text-white font-bold py-2 rounded-xl">🖨️ Imprimer</button>
-          </div>
-        </div>
-        <div id="create-admin-form-fields">
-          <div class="flex gap-2 pt-1">
-            <button type="button" onclick="closeModal('create-admin-modal')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl">Annuler</button>
-            <button type="submit" id="create-admin-btn" class="flex-1 bg-violet-700 hover:bg-violet-800 text-white font-extrabold py-2.5 rounded-xl">✔ Créer le compte</button>
-          </div>
-        </div>
-      </form>
     </div>
   </div>
 

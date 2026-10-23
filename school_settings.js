@@ -997,17 +997,11 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Formulaire création administrateur -->
-          <!-- Formulaire création administrateur (réservé au directeur) -->
-          <div id="adm-create-card" class="lg:col-span-1 bg-slate-50/70 border border-slate-200 rounded-2xl p-4 space-y-3">
-            <h4 class="font-extrabold text-slate-900 text-xs flex items-center justify-between">
-              <span class="flex items-center gap-1.5"><span>➕</span> Nouveau Compte Administrateur</span>
-              <span class="bg-violet-100 text-violet-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Directeur uniquement</span>
+          <div class="lg:col-span-1 bg-slate-50/70 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <h4 class="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+              <span>➕</span> Nouveau Compte Administrateur
             </h4>
-            <div id="adm-director-lock" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 space-y-1">
-              <p class="font-bold">🔒 Accès réservé au Directeur</p>
-              <p class="text-[11px] text-amber-800">Seul le compte administrateur désigné comme <b>Directeur</b> dans Supabase peut créer de nouveaux comptes administrateurs.</p>
-            </div>
-            <form id="adm-create-form" onsubmit="handleCreateAdmin(event)" class="space-y-3 text-xs">
+            <form onsubmit="handleCreateAdmin(event)" class="space-y-3 text-xs">
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Nom complet *</label>
                 <input type="text" id="adm-nom" required placeholder="Ex: M. Mamadou Ba" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -1070,13 +1064,6 @@
       ['cfg-logo',    s.logo],
     ];
     fields.forEach(([id, val]) => { const el = $(id); if (el && val) el.value = val; });
-    const lock = $('adm-director-lock');
-    const form = $('adm-create-form');
-    if (lock && form) {
-      const isDir = Boolean(window.sunuIsDirector);
-      lock.classList.toggle('hidden', isDir);
-      form.classList.toggle('hidden', !isDir);
-    }
     updateSettingsPreview();
     updateSystemStats();
   }
