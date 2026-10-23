@@ -1,0 +1,44 @@
+/* SunuSchool v11 - Feuille de style (complète Tailwind CSS) */
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+.glass-card {
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+.glass-input {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.8);
+}
+.hero-bg {
+  background-image: linear-gradient(135deg, rgba(16, 42, 66, 0.8), rgba(20, 83, 45, 0.7)), url('https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1600&auto=format&fit=crop');
+  background-size: cover;
+  background-position: center;
+}
+@media print {
+  header, #toast, .no-print, #login-modal { display: none !important; }
+  body { background: #fff !important; }
+}
+
+/* Site verrouillé tant qu'aucune connexion n'a réussi */
+body.locked > header,
+body.locked > main,
+body.locked #save-badge,
+body.locked #admin-tools { display: none !important; }
